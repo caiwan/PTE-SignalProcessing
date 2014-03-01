@@ -1,0 +1,21 @@
+# depslib dependency file v1.0
+1393150887 source:/media/workshop/prog/kep_es_hang/trunk/FFT/wavViz/source/wavread.cpp
+	"wavread.h"
+
+1393149863 /media/workshop/prog/kep_es_hang/trunk/FFT/wavViz/source/wavread.h
+	<cstdio>
+
+1393150419 source:/media/workshop/prog/kep_es_hang/trunk/FFT/wavViz/source/main.cpp
+	<SDL/SDL.h>
+	<cstdlib>
+	<cstdio>
+	"wavread.h"
+	"wavplayer.h"
+
+1393151152 /media/workshop/prog/kep_es_hang/trunk/FFT/wavViz/source/wavplayer.h
+	<SDL/SDL_audio.h>
+	"wavread.h"
+
+1393150436 source:/media/workshop/prog/kep_es_hang/trunk/FFT/wavViz/source/wavplayer.cpp
+	"wavplayer.h"
+

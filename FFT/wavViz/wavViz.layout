@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_layout_file>
+	<ActiveTarget name="Debug" />
+	<File name="source/main.cpp" open="1" top="0" tabpos="1">
+		<Cursor position="1336" topLine="38" />
+	</File>
+	<File name="source/wavplayer.cpp" open="1" top="1" tabpos="3">
+		<Cursor position="909" topLine="7" />
+	</File>
+	<File name="source/wavplayer.h" open="1" top="0" tabpos="2">
+		<Cursor position="220" topLine="0" />
+	</File>
+	<File name="source/wavread.cpp" open="0" top="0" tabpos="3">
+		<Cursor position="2090" topLine="5" />
+	</File>
+	<File name="source/wavread.h" open="0" top="0" tabpos="2">
+		<Cursor position="101" topLine="6" />
+	</File>
+</CodeBlocks_layout_file>
