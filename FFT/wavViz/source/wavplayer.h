@@ -11,6 +11,6 @@ namespace WavPlayer{
 
     extern int GetTimeSample();
     extern int GetTimeMs();
-}
+};
 
 #endif // WAVPLAYER_H

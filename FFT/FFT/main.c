@@ -81,9 +81,23 @@ void DFT(const float *in, const unsigned int len, struct complex_t *out){
 // Fast Foutirer Transform
 // csak 2^n darab mintaval mukodik
 // http://www.katjaas.nl/FFTimplement/FFTimplement.html
-void FFT(unsigned int logN, struct complex_t* in, struct complex_t* out)
+void FFT(unsigned int logN, const float* in, struct complex_t* out)
 {
-	// ... 
+	int i=0, j=0;
+	unsigned int N = 1<<logN;
+	struct complex_t *out_n, *out_nspan;
+
+	for(i=0; i<N; i++) {out[i].re = in[i]; out[i].im = 0;}
+
+	for(j=0; j<(N>>1); j++){
+		for(i=0; i<logN; i++){
+			out[2*j+0].re += out[2*j+0].re;
+			out[2*j+0].im += out[2*j+0].im;
+
+			out[2*j+1].re += out[2*j+1].re;
+			out[2*j+1].im += out[2*j+1].im;
+		}
+	}
 }
 
 void FFT2(unsigned int logN, const float* in, struct complex_t* out) // logN is base 2 log(N)
@@ -144,10 +158,29 @@ void FFT2(unsigned int logN, const float* in, struct complex_t* out) // logN is 
      } 
 }
 
+void FFT3_recursive(unsigned int logN, const float* in, struct complex_t* out)
+{
+	int i=0, j=0;
+	unsigned int N = 1<<logN;
+	struct complex_t *out_n, *out_nspan;
+
+	for(i=0; i<N; i++) {out[i].re = in[i]; out[i].im = 0;}
+
+	for(j=0; j<(N>>1); j++){
+		for(i=0; i<logN; i++){
+			out[2*j+0].re += out[2*j+0].re;
+			out[2*j+0].im += out[2*j+0].im;
+
+			out[2*j+1].re += out[2*j+1].re;
+			out[2*j+1].im += out[2*j+1].im;
+		}
+	}
+}
+
 // --------------------------------------------------------------
 // main
 
-float data[] = {0.f,1.f,2.f,3.f,4.f,5.f,6.f,7.f};
+float data[] = {0.f,1.f,2.f,3.f};
 
 int main(){
 	int datasize = sizeof(data)/sizeof(*data),
@@ -156,7 +189,7 @@ int main(){
 	struct complex_t *res_fft = (struct complex_t*)malloc(datasize*sizeof(*res_fft));
 
 	DFT(data, datasize, res_dft);
-	FFT2(, data, res_fft);
+	FFT(2, data, res_fft);
 
 	printf("DFT:\n");
 	for(i=0; i<datasize; i++){

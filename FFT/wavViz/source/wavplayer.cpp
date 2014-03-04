@@ -20,7 +20,7 @@ int WavPlayer::InitAudio(WavRead* reader){
     format.format = AUDIO_S16; //<- ezt resoveolni kell
     format.channels = reader->getChannels();
     format.callback = fill_audio;
-    format.samples = AUDIO_BUFFER_LEN*reader->getChannels(); //<- .. ?
+    format.samples = AUDIO_BUFFER_LEN; // *reader->getChannels(); //<- .. ?
     format.userdata = reader;
 
     if ( SDL_OpenAudio(&format, NULL) < 0 ) {

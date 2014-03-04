@@ -23,7 +23,7 @@
 #include "wavread.h"
 #include "wavplayer.h"
 
-int main(int argc, char** argv){
+int main(int argc, char* argv[]){
     SDL_Surface *screen;
 
     SDL_Event event;
@@ -35,6 +35,8 @@ int main(int argc, char** argv){
 
     FILE *fp = stdin;
 
+	int isReadFromStdin = 0;
+
     if (argc>1){
         fp = fopen(argv[1],"rb");
         if (!fp) {
@@ -42,8 +44,10 @@ int main(int argc, char** argv){
             return 1;
         }
         printf("Loading input stream from file\r\n");
+		isReadFromStdin = 0;
     } else {
         printf("Awaiting input stream from stdin\r\n");
+		isReadFromStdin = 1;
     }
 
     try{
@@ -55,22 +59,25 @@ int main(int argc, char** argv){
 
         SDL_Event event;
         while (running) {
-
             // do some fancy stuff here
 
+			if(!isReadFromStdin){
+				running = !reader->isEndOfStream();
+			}
+
             while (SDL_PollEvent(&event)) {
-                /* GLOBAL KEYS / EVENTS */
+				/* GLOBAL KEYS / EVENTS */
                 switch (event.type) {
                 case SDL_KEYDOWN:
                     switch (event.key.keysym.sym) {
                     case SDLK_ESCAPE:
-                        running = false;
+                        running &= false;
                         break;
                     default: break;
                     }
                     break;
                 case SDL_QUIT:
-                    running = false;
+                    running &= false;
                     break;
                 }
             }
