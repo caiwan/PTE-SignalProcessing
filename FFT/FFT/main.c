@@ -1,18 +1,22 @@
 #include <stdio.h>
 #include <stdlib.h>
-#define USE_MATH_DEFINES
+//#define USE_MATH_DEFINES
 #include <math.h>
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
+#ifdef M_PI
+#undef M_PI
 #endif /*M_PI*/
-
+//#define M_PI 3.14159265358979323846
+#define M_PI 3.141592653589793238462643383279502884197169399375105820974944
 // --------------------------------------------------------------
 // muveletek komplex szamokkal
 
+// ezzel megkonynitjuk a dolgunkat kicsit
+#define complex_elem_t float
+
 // komplex szamok reprezentalasahoz struktura
 struct complex_t {
-	float re, im;
+	complex_elem_t  re, im;
 };
 
 // exponencialis alakbol felir egy komplex szamot
@@ -81,7 +85,7 @@ void DFT(const float *in, const unsigned int len, struct complex_t *out){
 // Fast Foutirer Transform
 // csak 2^n darab mintaval mukodik
 // http://www.katjaas.nl/FFTimplement/FFTimplement.html
-void FFT(unsigned int logN, const float* in, struct complex_t* out)
+void FFT(unsigned int logN, const complex_elem_t* in, struct complex_t* out)
 {
 	int i=0, j=0;
 	unsigned int N = 1<<logN;
@@ -100,7 +104,26 @@ void FFT(unsigned int logN, const float* in, struct complex_t* out)
 	}
 }
 
-void FFT2(unsigned int logN, const float* in, struct complex_t* out) // logN is base 2 log(N)
+void FFT_recursive(unsigned int logN, const complex_elem_t* in, struct complex_t* out)
+{
+	int i=0, j=0;
+	unsigned int N = 1<<logN;
+	struct complex_t *out_n, *out_nspan;
+
+	for(i=0; i<N; i++) {out[i].re = in[i]; out[i].im = 0;}
+
+	for(j=0; j<(N>>1); j++){
+		for(i=0; i<logN; i++){
+			out[2*j+0].re += out[2*j+0].re;
+			out[2*j+0].im += out[2*j+0].im;
+
+			out[2*j+1].re += out[2*j+1].re;
+			out[2*j+1].im += out[2*j+1].im;
+		}
+	}
+}
+
+void FFT2(unsigned int logN, const complex_elem_t* in, struct complex_t* out) // logN is base 2 log(N)
 {
 	unsigned int i = 0, n=0, nspan, span, submatrix, node;
 	unsigned int N = 1<<logN;
@@ -116,36 +139,25 @@ void FFT2(unsigned int logN, const float* in, struct complex_t* out) // logN is 
 		for(submatrix=0; submatrix<(N>>1)/span; submatrix++){
 			for(node=0; node<span; node++){
 				nspan = n+span;
-				
-				//in_n.re = in[n];		in_n.im = 0.0f;
-				//in_nspan.re = in[nspan];	in_nspan.im = 0.0f;
 
 				out_nspan = &out[nspan];
 				out_n = &out[n];
 
-//				temp = real[n] + real[nspan];       // additions & subtractions
 				temp = out_n->re + out_nspan->re;
-//				real[nspan] = real[n]-real[nspan];
+
 				out_nspan->re = out_n->re - out_nspan->re;
-///				real[n] = temp;
 				out_n->re = temp;
 
-//				temp = im[n] + im[nspan];
 				temp = out_n->im + out_nspan->im;
-//				im[nspan] = im[n] - im[nspan];
 				out_nspan->im = out_n->im - out_nspan->im;
-//				im[n] = temp;
 				out_n->im = temp;
 
 				angle = primitive_root * node;      // rotations
 				realtwiddle = cos(angle);
 				imtwiddle = sin(angle); //printf("%3.2f ", angle);
 
-//				temp = realtwiddle * real[nspan] - imtwiddle * im[nspan];
 				temp = realtwiddle * out_nspan->re - imtwiddle * out_nspan->im;
-//				im[nspan] = realtwiddle * im[nspan] + imtwiddle * real[nspan];
 				out_nspan->im = realtwiddle * out_nspan->im + imtwiddle * out_nspan->re;
-//				real[nspan] = temp;
 				out_nspan->re = temp;				
 
 				n++;
@@ -157,24 +169,119 @@ void FFT2(unsigned int logN, const float* in, struct complex_t* out) // logN is 
         } 
      } 
 }
+// --------------------------------------------------------------
+// cfft
+// http://people.sc.fsu.edu/~jburkardt/c_src/fft_serial/fft_serial.c
+/*
+  Author:
 
-void FFT3_recursive(unsigned int logN, const float* in, struct complex_t* out)
-{
-	int i=0, j=0;
-	unsigned int N = 1<<logN;
-	struct complex_t *out_n, *out_nspan;
+    Original C version by Wesley Petersen.
+    This C version by John Burkardt.
+*/
 
-	for(i=0; i<N; i++) {out[i].re = in[i]; out[i].im = 0;}
+// complex copy
+void ccopy ( int n, complex_elem_t x[], complex_elem_t y[] ){ int i; for ( i = 0; i < n; i++ ) { y[i*2+0] = x[i*2+0]; y[i*2+1] = x[i*2+1]; } return; }
 
-	for(j=0; j<(N>>1); j++){
-		for(i=0; i<logN; i++){
-			out[2*j+0].re += out[2*j+0].re;
-			out[2*j+0].im += out[2*j+0].im;
+// cfft init
+void cffti ( int n, complex_elem_t w[] ){
+  complex_elem_t arg;
+  complex_elem_t aw;
+  int i;
+  int n2;
 
-			out[2*j+1].re += out[2*j+1].re;
-			out[2*j+1].im += out[2*j+1].im;
-		}
-	}
+  n2 = n / 2;
+  aw = 2.0 * M_PI / ( ( double ) n );
+
+  for ( i = 0; i < n2; i++ )
+  {
+    arg = aw * ( ( double ) i );
+    w[i*2+0] = cos ( arg );
+    w[i*2+1] = sin ( arg );
+  }
+  return;
+}
+
+void step ( int n, int mj, complex_elem_t a[], complex_elem_t b[], complex_elem_t c[], complex_elem_t d[], complex_elem_t w[], complex_elem_t sgn ){
+  complex_elem_t ambr;
+  complex_elem_t ambu;
+  int j, ja, jb, jc, jd, jw;
+  int k, lj, mj2;
+  complex_elem_t wjw[2];
+
+  mj2 = 2 * mj;
+  lj  = n / mj2;
+
+  for ( j = 0; j < lj; j++ )
+  {
+    jw = j * mj;
+    ja  = jw;
+    jb  = ja;
+    jc  = j * mj2;
+    jd  = jc;
+
+    wjw[0] = w[jw*2+0]; 
+    wjw[1] = w[jw*2+1];
+
+    if ( sgn < 0.0 ) 
+    {
+      wjw[1] = - wjw[1];
+    }
+
+    for ( k = 0; k < mj; k++ )
+    {
+      c[(jc+k)*2+0] = a[(ja+k)*2+0] + b[(jb+k)*2+0];
+      c[(jc+k)*2+1] = a[(ja+k)*2+1] + b[(jb+k)*2+1];
+
+      ambr = a[(ja+k)*2+0] - b[(jb+k)*2+0];
+      ambu = a[(ja+k)*2+1] - b[(jb+k)*2+1];
+
+      d[(jd+k)*2+0] = wjw[0] * ambr - wjw[1] * ambu;
+      d[(jd+k)*2+1] = wjw[1] * ambr + wjw[0] * ambu;
+    }
+  }
+  return;
+}
+
+// cfftv2
+void cfft2 ( int n, complex_elem_t x[], complex_elem_t y[], complex_elem_t w[], complex_elem_t sgn ){
+  int j, m, mj, tgle;
+
+   m = ( int ) ( log ( ( double ) n ) / log ( 1.99 ) );
+   mj   = 1;
+/*
+  Toggling switch for work array.
+*/
+  tgle = 1;
+  step ( n, mj, &x[0*2+0], &x[(n/2)*2+0], &y[0*2+0], &y[mj*2+0], w, sgn );
+
+  if ( n == 2 ){
+    return;
+  }
+
+  for ( j = 0; j < m - 2; j++ ){
+    mj = mj * 2;
+    if ( tgle )
+    {
+      step ( n, mj, &y[0*2+0], &y[(n/2)*2+0], &x[0*2+0], &x[mj*2+0], w, sgn );
+      tgle = 0;
+    }
+    else
+    {
+      step ( n, mj, &x[0*2+0], &x[(n/2)*2+0], &y[0*2+0], &y[mj*2+0], w, sgn );
+      tgle = 1;
+    }
+  }
+/* 
+  Last pass through data: move Y to X if needed.
+*/
+  if ( tgle ) {
+    ccopy ( n, y, x );
+  }
+
+  mj = n / 2;
+  step ( n, mj, &x[0*2+0], &x[(n/2)*2+0], &y[0*2+0], &y[mj*2+0], w, sgn );
+
+  return;
 }
 
 // --------------------------------------------------------------
@@ -183,13 +290,24 @@ void FFT3_recursive(unsigned int logN, const float* in, struct complex_t* out)
 float data[] = {0.f,1.f,2.f,3.f};
 
 int main(){
-	int datasize = sizeof(data)/sizeof(*data),
-		i = 0;
+	int datasize = sizeof(data)/sizeof(*data), i = 0;
+	
+	struct complex_t *src_dts = (struct complex_t*)malloc(datasize*sizeof(*src_dts));
+
+	complex_elem_t *Wn = (complex_elem_t*)malloc(datasize*sizeof(*Wn));
+
 	struct complex_t *res_dft = (struct complex_t*)malloc(datasize*sizeof(*res_dft));
 	struct complex_t *res_fft = (struct complex_t*)malloc(datasize*sizeof(*res_fft));
 
+	for (i=0; i<datasize; i++){src_dts[i].re = data[i]; src_dts[i].im = 0.f;}
+
+	cffti(datasize, Wn); 
+
 	DFT(data, datasize, res_dft);
-	FFT(2, data, res_fft);
+	//FFT(2, data, res_fft);
+
+	cfft2(datasize, (complex_elem_t*)src_dts, (complex_elem_t*)res_dft, Wn, +1.0f);
+	//cfft2(datasize, (complex_elem_t*)src_dts, (complex_elem_t*)res_dft, Wn, -1.0f);
 
 	printf("DFT:\n");
 	for(i=0; i<datasize; i++){
