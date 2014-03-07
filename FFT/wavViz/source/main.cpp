@@ -51,18 +51,33 @@ int main(int argc, char* argv[]){
     }
 
     try{
+		Timer* timer = new Timer();
         WavRead *reader = new WavRead(fp);
         WavPlayer::InitAudio(reader);
-        WavPlayer::PlayAudio();
+        
+		WavPlayer::PlayAudio();
 
         bool running = true;
+
+		unsigned int dtime = 0, ttime = timer->getDeltaTimeMs(), frame = 0, frametime = 0;
 
         SDL_Event event;
         while (running) {
             // do some fancy stuff here
 
-			if(!isReadFromStdin){
-				running = !reader->isEndOfStream();
+			//if(!isReadFromStdin){
+			running = !reader->isEndOfStream();
+			//}
+			ttime += dtime = timer->getDeltaTimeMs();
+			printf("time: %d.%d                 \r", ttime/1000, ttime%1000);
+
+			if (frametime>=1000){
+				printf("FPS: %d           \r\n", frame);
+				frametime = 0; 
+				frame = 0;
+			} else {
+				frametime += dtime;
+				frame++;
 			}
 
             while (SDL_PollEvent(&event)) {

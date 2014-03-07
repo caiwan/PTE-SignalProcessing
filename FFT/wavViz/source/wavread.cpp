@@ -43,11 +43,14 @@ WavRead::WavRead(FILE* infile)
     printf("HeaderLength = %d\n", sizeof(this->header));	// <- block_alignment !
 #endif /*debug info*/
 
-    this->bufsize = AUDIO_BUFFER_LEN * this->header.fmt_chunk.numOfChan * (this->header.fmt_chunk.bitsPerSample/8);
+    //this->bufsize = AUDIO_BUFFER_LEN * this->header.fmt_chunk.numOfChan * (this->header.fmt_chunk.bitsPerSample/8);
+	this->bufsize = AUDIO_BUFFER_LEN * this->header.fmt_chunk.blockAlign;
     //this->buffer = new char*[2];
     this->buffer[0] = new char[this->bufsize];
     this->buffer[1] = new char[this->bufsize];
-    this->activeBuffer = 0;
+	this->buffer[2] = new char[this->bufsize];
+
+    //this->activeBuffer = 0;
 
     this->bytesRead = 0;
 	this->streamlen = header.data_chunk.subchunk2Size;
@@ -55,7 +58,8 @@ WavRead::WavRead(FILE* infile)
     this->_isEndOfStream = 0;
 
     this->frontBuffer = NULL;
-    this->readBuffer = this->buffer[0];
+	this->backBuffer = NULL;
+    this->readBuffer = this->buffer[2];
 
 }
 
@@ -67,7 +71,6 @@ WavRead::~WavRead()
     }
 }
 
-
 void WavRead::fillBuffer(){
     if(!infile) throw 1;
     if(this->_isEndOfStream) throw 2;
@@ -77,27 +80,53 @@ void WavRead::fillBuffer(){
     if (data_left < this->bufsize) {
         data_read = data_left;
         this->_isEndOfStream = 1;    // stram vege
-        printf("End of audio stream\n");
+        //printf("End of audio stream\n");
     }
 
     fread(this->readBuffer, data_read, 1, this->infile);
 
     this->bufsize = data_read;
     this->bytesRead += data_read;
-    printf("%d bytes read in %d block             \r", this->bytesRead, data_read);
+   // printf("%d bytes read in %d block             \r", this->bytesRead, data_read);
 }
 
 void WavRead::swapBuffer(){
-    this->frontBuffer = this->buffer[this->activeBuffer];
-    this->activeBuffer = ++this->activeBuffer & 1;
-    this->readBuffer = this->buffer[this->activeBuffer];
+	void *tmp1 = this->frontBuffer;
+	this->frontBuffer = this->backBuffer;
+	this->backBuffer = this->readBuffer;
+	this->readBuffer = tmp1;
 }
 
 
+void WavRead::fillBuffer(int size, int offset, void* buffer){
+	if (!this->frontBuffer){
+		this->frontBuffer =	this->buffer[0];
+		this->backBuffer = this->buffer[1];
 
+		this->fillBuffer();
+		this->swapBuffer();
+		this->fillBuffer();
+		this->swapBuffer();
+	}
+	
+	int _offset = offset - (this->bytesRead-2*bufsize);
+	if (_offset<0) throw 4;
+	if (!buffer) throw 2;
+	if (_offset>2*bufsize) throw 1;
+	if (size>bufsize) throw 3;
 
+	int left = (size+_offset)-this->bufsize;
 
+	if (left<=0){
+		memcpy(buffer, (char*)this->frontBuffer+_offset, size);
+	} else {
+		int bal = bufsize-_offset, jobb = size-bal;
+		memcpy(buffer, (char*)this->frontBuffer+_offset, _offset-this->bufsize);
+		memcpy((char*)buffer+( _offset-this->bufsize), (char*)this->frontBuffer+left, left);
+	}
 
-
-
-
+	if(offset>bufsize) {
+			this->fillBuffer();
+			this->swapBuffer();
+	}
+}

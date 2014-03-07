@@ -6,23 +6,11 @@
 #define WAVREAD_H
 
 #include <cstdio>
+#include <SDL/SDL_audio.h>
 
 #define AUDIO_BUFFER_LEN 4096
 
 class WavRead;
-//class WavPlayer;
-
-class Buffer{
-    friend class WavRead;
-    //friend class WavPlayer;
-
-    private:
-        char *buf[2];
-        char *readBuffer, *primaryBuffer, *secondaryBuffer;
-
-    public:
-
-};
 
 class WavRead
 {
@@ -60,25 +48,33 @@ class WavRead
 
         int bufsize, streamlen, bytesRead;
         int _isEndOfStream, activeBuffer;
-        void *buffer[2];  // duplabuffer
-        void *frontBuffer, *readBuffer;
+        void *buffer[3];  // triplabuffer
+        void *frontBuffer, *backBuffer, *readBuffer;
 
         FILE *infile;
+
+		void fillBuffer();
+        void swapBuffer();
 
     public:
         WavRead(FILE* infile);
         virtual ~WavRead();
 
-        void fillBuffer();
-        void swapBuffer();
-
-        inline void* getBuffer(){return this->frontBuffer;}
-        inline int getBufsize() {return this->bufsize;}
+        //inline void* getBuffer(){return this->frontBuffer;}
+        //inline int getBufsize() {return this->bufsize;}
+		inline int getbytesRead(){return this->bytesRead;}
+		inline int getSamplesRead(){return this->bytesRead/this->header.fmt_chunk.blockAlign;}
+		
+		// retetek byteban ertendok
+		void fillBuffer(int size, int offset, void* buffer);
 
         inline int getSamplingFreq(){return this->header.fmt_chunk.samplesPerSec;}
         inline int getChannels(){return this->header.fmt_chunk.numOfChan;}
         inline int getBitrate(){return this->header.fmt_chunk.bitsPerSample;}
 
+#define K this->header.fmt_chunk.bitsPerSample
+		inline int getSDLAudioFormat(){if (K == 8) return AUDIO_S8; else if (K == 16) return AUDIO_S16; return 0;}
+#undef K
         inline int isEndOfStream(){return this->_isEndOfStream; }
 };
 
