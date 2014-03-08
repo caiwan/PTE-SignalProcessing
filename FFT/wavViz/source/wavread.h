@@ -65,6 +65,8 @@ class WavRead
 		inline int getbytesRead(){return this->bytesRead;}
 		inline int getSamplesRead(){return this->bytesRead/this->header.fmt_chunk.blockAlign;}
 		
+		//inline int getFrontB
+
 		// retetek byteban ertendok
 		void fillBuffer(int size, int offset, void* buffer);
 

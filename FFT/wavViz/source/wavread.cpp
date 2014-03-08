@@ -112,20 +112,30 @@ void WavRead::fillBuffer(int size, int offset, void* buffer){
 	int _offset = offset - (this->bytesRead-2*bufsize);
 	if (_offset<0) throw 4;
 	if (!buffer) throw 2;
-	if (_offset>2*bufsize) throw 1;
-	if (size>bufsize) throw 3;
+	if (_offset+size>2*bufsize) throw 1;
+	//if (size>2*bufsize) throw 3;
 
 	int left = (size+_offset)-this->bufsize;
 
 	if (left<=0){
 		memcpy(buffer, (char*)this->frontBuffer+_offset, size);
 	} else {
-		int bal = bufsize-_offset, jobb = size-bal;
-		memcpy(buffer, (char*)this->frontBuffer+_offset, _offset-this->bufsize);
-		memcpy((char*)buffer+( _offset-this->bufsize), (char*)this->frontBuffer+left, left);
+		int bal_offset = _offset;
+		int bal_hossz = bal_offset - this->bufsize;
+
+		int jobb_offset = _offset - this->bufsize;
+		int jobb_hossz = size - bal_hossz;
+
+		if (bal_hossz > 0)
+			memcpy(&((char*)buffer)[0], &((char*)this->frontBuffer)[bal_offset], bal_hossz); 
+
+		if (jobb_hossz>0)
+			memcpy(&((char*)buffer)[bal_hossz], &((char*)this->backBuffer)[jobb_offset], jobb_hossz);
+
+		//memset(buffer, 0, size);
 	}
 
-	if(offset>bufsize) {
+	if(offset>=bufsize) {
 			this->fillBuffer();
 			this->swapBuffer();
 	}

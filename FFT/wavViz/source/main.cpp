@@ -72,7 +72,7 @@ int main(int argc, char* argv[]){
 			printf("time: %d.%d                 \r", ttime/1000, ttime%1000);
 
 			if (frametime>=1000){
-				printf("FPS: %d           \r\n", frame);
+				printf("FPS: %d                 \r\n", frame);
 				frametime = 0; 
 				frame = 0;
 			} else {

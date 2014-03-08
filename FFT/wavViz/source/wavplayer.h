@@ -26,4 +26,4 @@ class Timer{
 		}
 };
 
-#endif // WAVPLAYER_H
+#endif /*WAVPLAYER_H*/
