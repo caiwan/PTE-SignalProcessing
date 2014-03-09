@@ -15,7 +15,6 @@ class WavRead;
 class WavRead
 {
     private:
-
         struct WAV_header{
             struct {
 				char RIFF[4];       // "RIFF" (big-) vagy "RIFX" (little endian)
@@ -62,17 +61,25 @@ class WavRead
 
         //inline void* getBuffer(){return this->frontBuffer;}
         //inline int getBufsize() {return this->bufsize;}
-		inline int getbytesRead(){return this->bytesRead;}
+		inline int getBufferStart(){return this->bytesRead?this->bytesRead - 2* this->bufsize : 0;}
+		inline int getBytesRead(){return this->bytesRead;}
 		inline int getSamplesRead(){return this->bytesRead/this->header.fmt_chunk.blockAlign;}
 		
 		//inline int getFrontB
+		typedef enum channel_e{
+			CH_MONO,
+			CH_LEFT,
+			CH_RIGHT
+		} channel_t;
 
 		// retetek byteban ertendok
+		void fillBufferComplex(int sample, int offset, float* buffer, channel_t channel);
 		void fillBuffer(int size, int offset, void* buffer);
 
         inline int getSamplingFreq(){return this->header.fmt_chunk.samplesPerSec;}
         inline int getChannels(){return this->header.fmt_chunk.numOfChan;}
         inline int getBitrate(){return this->header.fmt_chunk.bitsPerSample;}
+		inline int getBlockAlign(){return this->header.fmt_chunk.blockAlign;}
 
 #define K this->header.fmt_chunk.bitsPerSample
 		inline int getSDLAudioFormat(){if (K == 8) return AUDIO_S8; else if (K == 16) return AUDIO_S16; return 0;}

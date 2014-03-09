@@ -22,6 +22,9 @@
 
 #include "wavread.h"
 #include "wavplayer.h"
+#include "FFT.h"
+
+#define FFT_SAMPLE 512
 
 int main(int argc, char* argv[]){
     SDL_Surface *screen;
@@ -51,6 +54,7 @@ int main(int argc, char* argv[]){
     }
 
     try{
+		FFT* fft = new FFT(FFT_SAMPLE);
 		Timer* timer = new Timer();
         WavRead *reader = new WavRead(fp);
         WavPlayer::InitAudio(reader);
@@ -63,7 +67,10 @@ int main(int argc, char* argv[]){
 
         SDL_Event event;
         while (running) {
-            // do some fancy stuff here
+			int offset = (ttime * reader->getSamplingFreq() / 1000) * reader->getBlockAlign();
+			if(offset<reader->getBufferStart()) offset = reader->getBufferStart();
+
+			//reader->fillBuffer(FFT_SAMPLE*reader->getBlockAlign(), offset, (float*)fft->getInputBuffer(), 1);
 
 			//if(!isReadFromStdin){
 			running = !reader->isEndOfStream();
@@ -71,6 +78,7 @@ int main(int argc, char* argv[]){
 			ttime += dtime = timer->getDeltaTimeMs();
 			printf("time: %d.%d                 \r", ttime/1000, ttime%1000);
 
+			// FRAPS!
 			if (frametime>=1000){
 				printf("FPS: %d                 \r\n", frame);
 				frametime = 0; 
@@ -101,6 +109,8 @@ int main(int argc, char* argv[]){
         WavPlayer::DestroyAudio();
 
         delete reader;
+		delete timer;
+		delete fft;
 
     } catch (int e){
         printf("Could not open file. Error code: %d\r\n",e);

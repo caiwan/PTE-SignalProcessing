@@ -2,12 +2,18 @@
 #define FFT_H
 
 #include <math.h>
+
+#ifdef M_PI
+#undef M_PI
+#endif /*M_PI*/
+//#define M_PI 3.14159265358979323846
+#define M_PI 3.141592653589793238462643383279502884197169399375105820974944
+
 // --------------------------------------------------------------
 // muveletek komplex szamokkal
 
-typedef float complex_elem_t;
 typedef struct complex_t {
-	complex_elem_t  re, im;
+	float  re, im;
 } complex;
 
 inline void complex_exp(float r, float phi, struct complex_t *out){
@@ -22,7 +28,7 @@ inline void complex_mul(const complex *_a, const complex *_b, complex *out){
 	out->im = (a*d+b*c);
 }
 
-inline void complex_mul_by_c(const complex *_a, const complex_elem_t _b, complex *out){
+inline void complex_mul_by_c(const complex *_a, const float _b, complex *out){
 	float a=_a->re, b=_a->im;
 
 	out->re = _b*a;
@@ -44,10 +50,12 @@ inline void complex_sub(const  complex *_a, const complex *_b, complex *out){
 //////////////////////////////////////////////////////////////////////////////
 class FFT {
 	private:
-		complex *Wn, *x, *y;
+		complex *Wn, *x, *y;	// y:= F{x}
 		int samplesize;
 
 		// CFFTv2 1:1-ben bekerul ide.
+		inline void fft_ccopy ( int n, complex *x, complex *y ){  int i; for (i=0; i<n; i++ ) y[i] = x[i]; }
+		void step (int n, int mj, complex *a, complex *b, complex *c, complex *d, float sgn);
 
 	public:
 		FFT(int samplesize);
@@ -55,6 +63,7 @@ class FFT {
 
 		void calculate();
 
+		inline const complex_t *getInputBuffer(){return this->x;}
 		inline const complex_t *getLastResult(){return this->y;}
 };
 

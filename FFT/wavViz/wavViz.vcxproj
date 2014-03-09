@@ -63,10 +63,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="source\FFT.h" />
     <ClInclude Include="source\wavplayer.h" />
     <ClInclude Include="source\wavread.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="source\FFT.cpp" />
     <ClCompile Include="source\main.cpp" />
     <ClCompile Include="source\wavplayer.cpp" />
     <ClCompile Include="source\wavread.cpp" />
