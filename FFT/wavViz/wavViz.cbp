@@ -36,6 +36,8 @@
 			<Add option="`sdl-config --libs`" />
 			<Add library="SDL_mixer" />
 		</Linker>
+		<Unit filename="source/FFT.cpp" />
+		<Unit filename="source/FFT.h" />
 		<Unit filename="source/main.cpp" />
 		<Unit filename="source/wavplayer.cpp" />
 		<Unit filename="source/wavplayer.h" />

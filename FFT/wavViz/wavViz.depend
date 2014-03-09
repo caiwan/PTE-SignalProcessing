@@ -1,21 +1,30 @@
 # depslib dependency file v1.0
-1393150887 source:/media/workshop/prog/kep_es_hang/trunk/FFT/wavViz/source/wavread.cpp
+1394400712 source:/media/workshop/prog/kep_es_hang/trunk/FFT/wavViz/source/wavread.cpp
 	"wavread.h"
 
-1393149863 /media/workshop/prog/kep_es_hang/trunk/FFT/wavViz/source/wavread.h
+1394393311 /media/workshop/prog/kep_es_hang/trunk/FFT/wavViz/source/wavread.h
 	<cstdio>
+	<SDL/SDL_audio.h>
 
-1393150419 source:/media/workshop/prog/kep_es_hang/trunk/FFT/wavViz/source/main.cpp
+1394401273 source:/media/workshop/prog/kep_es_hang/trunk/FFT/wavViz/source/main.cpp
 	<SDL/SDL.h>
 	<cstdlib>
 	<cstdio>
 	"wavread.h"
 	"wavplayer.h"
+	"FFT.h"
 
-1393151152 /media/workshop/prog/kep_es_hang/trunk/FFT/wavViz/source/wavplayer.h
+1394375977 /media/workshop/prog/kep_es_hang/trunk/FFT/wavViz/source/wavplayer.h
 	<SDL/SDL_audio.h>
+	<SDL/SDL.h>
 	"wavread.h"
 
-1393150436 source:/media/workshop/prog/kep_es_hang/trunk/FFT/wavViz/source/wavplayer.cpp
+1394381607 source:/media/workshop/prog/kep_es_hang/trunk/FFT/wavViz/source/wavplayer.cpp
 	"wavplayer.h"
+
+1394375977 /media/workshop/prog/kep_es_hang/trunk/FFT/wavViz/source/FFT.h
+	<math.h>
+
+1394375977 source:/media/workshop/prog/kep_es_hang/trunk/FFT/wavViz/source/FFT.cpp
+	"FFT.h"
 

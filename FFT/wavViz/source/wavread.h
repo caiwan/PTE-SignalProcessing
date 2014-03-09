@@ -62,9 +62,10 @@ class WavRead
         //inline void* getBuffer(){return this->frontBuffer;}
         //inline int getBufsize() {return this->bufsize;}
 		inline int getBufferStart(){return this->bytesRead?this->bytesRead - 2* this->bufsize : 0;}
+		inline int getBufferStartSample(){return this->getBufferStart() / this->header.fmt_chunk.blockAlign;}
 		inline int getBytesRead(){return this->bytesRead;}
 		inline int getSamplesRead(){return this->bytesRead/this->header.fmt_chunk.blockAlign;}
-		
+
 		//inline int getFrontB
 		typedef enum channel_e{
 			CH_MONO,

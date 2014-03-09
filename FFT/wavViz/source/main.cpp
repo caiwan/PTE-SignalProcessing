@@ -26,13 +26,44 @@
 
 #define FFT_SAMPLE 512
 
+Uint32 getpixel(SDL_Surface *surface, int x, int y);
+void putpixel(SDL_Surface *surface, int x, int y, Uint32 pixel);
+
+void drawBars(const complex *data, int samplelen, int x, int y, int w, int h, SDL_Surface *screen){
+    SDL_LockSurface(screen);
+
+    SDL_Rect pos;
+    pos.x = (screen->w*x)/100;
+    pos.y = (screen->h*y)/100;
+    pos.w = (screen->w*w)/100;
+    pos.h = (screen->h*h)/100;
+
+    int c = 0;
+
+    for(int px=0; px<pos.w; px++){
+        //
+        if (px>=samplelen) return;
+        float f = 20*log10f(data[px].re / (float)samplelen);
+        float f = data[px].re / (float)samplelen;
+        float h = fabs(f)*(float)pos.h;
+        for(int py=0; py<pos.h; py++){
+            if(py<h)
+            c = 0xFFFFFFFF;
+            else c = 0x0;
+            putpixel(screen, pos.x+px, pos.y+py, c);
+        }
+    }
+
+    SDL_UnlockSurface(screen);
+}
+
 int main(int argc, char* argv[]){
     SDL_Surface *screen;
 
     SDL_Event event;
 
     SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO);
-    screen = SDL_SetVideoMode(640, 480, 32, SDL_SWSURFACE);
+    screen = SDL_SetVideoMode(640, 480, 32, SDL_SWSURFACE | SDL_DOUBLEBUF | SDL_HWSURFACE);
 
     printf("FFT WavViz by Caiwan^IR \r\n");
 
@@ -58,19 +89,49 @@ int main(int argc, char* argv[]){
 		Timer* timer = new Timer();
         WavRead *reader = new WavRead(fp);
         WavPlayer::InitAudio(reader);
-        
+
 		WavPlayer::PlayAudio();
 
         bool running = true;
 
-		unsigned int dtime = 0, ttime = timer->getDeltaTimeMs(), frame = 0, frametime = 0;
+		unsigned int dtime = 0, ttime = timer->getDeltaTimeMs(), frame = 0, frametime = 0, frameskip;
 
         SDL_Event event;
         while (running) {
-			int offset = (ttime * reader->getSamplingFreq() / 1000) * reader->getBlockAlign();
-			if(offset<reader->getBufferStart()) offset = reader->getBufferStart();
+            try {
+                int offset = (ttime * reader->getSamplingFreq() / 1000);
+                if(offset < reader->getBufferStartSample()) offset = reader->getBufferStartSample();
 
-			//reader->fillBuffer(FFT_SAMPLE*reader->getBlockAlign(), offset, (float*)fft->getInputBuffer(), 1);
+                if (reader->getChannels() == 2){
+#if 0
+                    reader->fillBufferComplex(FFT_SAMPLE, offset, (float*)fft->getInputBuffer(), WavRead::CH_LEFT);
+                    fft->calculate();
+
+                    drawBars(fft->getLastResult(), FFT_SAMPLE, 0, 0, 49, 90, screen);
+
+                    reader->fillBufferComplex(FFT_SAMPLE, offset, (float*)fft->getInputBuffer(), WavRead::CH_RIGHT);
+                    fft->calculate();
+
+                    drawBars(fft->getLastResult(), FFT_SAMPLE, 51, 0, 49, 90, screen);
+#else
+                    reader->fillBufferComplex(FFT_SAMPLE, offset, (float*)fft->getInputBuffer(), WavRead::CH_MONO);
+                    fft->calculate();
+
+                    drawBars(fft->getLastResult(), FFT_SAMPLE, 0, 0, 100, 90, screen);
+
+#endif
+                } else {
+                    // mono
+                }
+
+            } catch (int e){
+                // egyes esetekben lemarad a bufferrol, ezert el kell dobni 1-1 framet emiatt sajnos.
+                if (e == 4)
+                    frameskip ++ ;
+                else throw e;
+            }
+
+            SDL_Flip(screen);
 
 			//if(!isReadFromStdin){
 			running = !reader->isEndOfStream();
@@ -80,8 +141,9 @@ int main(int argc, char* argv[]){
 
 			// FRAPS!
 			if (frametime>=1000){
-				printf("FPS: %d                 \r\n", frame);
-				frametime = 0; 
+				printf("FPS: %d skipped: %d                \r\n", frame, frameskip);
+				frameskip = 0;
+				frametime = 0;
 				frame = 0;
 			} else {
 				frametime += dtime;
@@ -119,5 +181,82 @@ int main(int argc, char* argv[]){
     fclose(fp);
 
     return 0;
+}
+/////////////////////////////////////////////////////////////////////////
+// Ezeket majd ki kell dobalni egy kulon fileba
+Uint32 getpixel(SDL_Surface *surface, int x, int y)
+{
+    if (x<0) return -1;
+    if (y<0) return -1;
+
+    if (x>=surface->w) return -1;
+    if (y>=surface->h) return -1;
+
+    int bpp = surface->format->BytesPerPixel;
+    /* Here p is the address to the pixel we want to retrieve */
+    Uint8 *p = (Uint8 *)surface->pixels + y * surface->pitch + x * bpp;
+
+    switch(bpp) {
+    case 1:
+        return *p;
+        break;
+
+    case 2:
+        return *(Uint16 *)p;
+        break;
+
+    case 3:
+        if(SDL_BYTEORDER == SDL_BIG_ENDIAN)
+            return p[0] << 16 | p[1] << 8 | p[2];
+        else
+            return p[0] | p[1] << 8 | p[2] << 16;
+        break;
+
+    case 4:
+        return *(Uint32 *)p;
+        break;
+
+    default:
+        return 0;       /* shouldn't happen, but avoids warnings */
+    }
+}
+
+void putpixel(SDL_Surface *surface, int x, int y, Uint32 pixel)
+{
+    if (x<0) return;
+    if (y<0) return;
+
+    if (x>=surface->w) return;
+    if (y>=surface->h) return;
+
+    int bpp = surface->format->BytesPerPixel;
+    /* Here p is the address to the pixel we want to set */
+    Uint8 *p = (Uint8 *)surface->pixels + y * surface->pitch + x * bpp;
+
+    switch(bpp) {
+    case 1:
+        *p = pixel;
+        break;
+
+    case 2:
+        *(Uint16 *)p = pixel;
+        break;
+
+    case 3:
+        if(SDL_BYTEORDER == SDL_BIG_ENDIAN) {
+            p[0] = (pixel >> 16) & 0xff;
+            p[1] = (pixel >> 8) & 0xff;
+            p[2] = pixel & 0xff;
+        } else {
+            p[0] = pixel & 0xff;
+            p[1] = (pixel >> 8) & 0xff;
+            p[2] = (pixel >> 16) & 0xff;
+        }
+        break;
+
+    case 4:
+        *(Uint32 *)p = pixel;
+        break;
+    }
 }
 

@@ -7,7 +7,7 @@ WavRead::WavRead(FILE* infile)
 
     //Wav header feltoltese
     //fread(&this->header, sizeof(this->header), 1, this->infile);
-	
+
 	for(int i=0; i<sizeof(this->header); ++i) ((char*)&this->header)[i] = 0;
 
 	// sajnos nem lehet a headert egy lepesben beolvasni :(
@@ -98,6 +98,98 @@ void WavRead::swapBuffer(){
 }
 
 void WavRead::fillBufferComplex(int size, int offset, float* buffer, channel_t channel){
+    if (!this->frontBuffer){
+		this->frontBuffer =	this->buffer[0];
+		this->backBuffer = this->buffer[1];
+
+		this->fillBuffer();
+		this->swapBuffer();
+		this->fillBuffer();
+		this->swapBuffer();
+	}
+
+    int align = this->header.fmt_chunk.blockAlign;
+    int _size = size * align;
+    int _offset = offset * align - (this->bytesRead-2*bufsize);
+
+	if (_offset<0)
+		throw 4;
+	if (!buffer)
+		throw 2;
+	if (_offset+_size>2*bufsize)
+		throw 1;
+
+    int left = (_size+_offset)-this->bufsize;
+    float c = 1./(float)(1<<this->header.fmt_chunk.bitsPerSample);
+
+    int ch = this->header.fmt_chunk.numOfChan;
+    int cs = (channel==CH_RIGHT && ch==2)?1:0;
+
+    if(this->header.fmt_chunk.bitsPerSample == 8){
+
+    }
+    else if(this->header.fmt_chunk.bitsPerSample == 16){
+        unsigned short *bbuffer = (unsigned short*)((char*)this->frontBuffer+_offset);
+        if (left<0){
+            if (channel == CH_MONO && ch == 2){
+                c *= .5;
+                for (int i=0; i<size; i++){
+                    buffer[2*i+0] = c * (float)bbuffer[ch*i+cs] + c * (float)bbuffer[ch*i+cs] - .5;
+                    buffer[2*i+1] = 0.0f;
+                }
+            }
+            else
+                for (int i=0; i<size; i++){
+                    buffer[2*i+0] = c * (float)bbuffer[ch*i+cs] - .5;
+                    buffer[2*i+1] = 0.0f;
+                }
+        }else{
+            int bal_offset = _offset;
+            int bal_hossz = this->bufsize - bal_offset;
+            if (bal_hossz<0) bal_hossz = 0;
+
+            int bal_hossz_sample = bal_hossz / align;
+
+            int jobb_offset = _offset - this->bufsize;
+            int jobb_hossz = _size - bal_hossz;
+
+            int jobb_hossz_sample = jobb_hossz / align;
+
+            //memcpy(&((char*)buffer)[0], &((char*)this->frontBuffer)[bal_offset], bal_hossz);
+            if (channel == CH_MONO && ch == 2){
+                c *= .5;
+                bbuffer = (unsigned short*)((char*)this->frontBuffer+bal_offset);
+                if (bal_hossz > 0)
+                    for (int i=0; i<bal_hossz_sample; i++){
+                        buffer[2*i+0] = c * (float)bbuffer[ch*i+cs] + c * (float)bbuffer[ch*i+cs] - .5;
+                        buffer[2*i+1] = 0.0f;
+                    }
+
+                bbuffer = (unsigned short*)((char*)this->backBuffer+jobb_offset);
+                if (jobb_hossz>0)
+                    for (int i=0; i<jobb_hossz_sample; i++){
+                        buffer[2*(bal_hossz_sample+i)+0] = c * (float)bbuffer[ch*i+cs] + c * (float)bbuffer[ch*i+cs] - .5;
+                        buffer[2*(bal_hossz_sample+i)+1] = 0.0f;
+                    }
+            }
+            else{
+                bbuffer = (unsigned short*)((char*)this->frontBuffer+bal_offset);
+                if (bal_hossz > 0)
+                    for (int i=0; i<bal_hossz_sample; i++){
+                        buffer[2*i+0] = c * (float)bbuffer[ch*i+cs]- .5;
+                        buffer[2*i+1] = 0.0f;
+                    }
+
+                bbuffer = (unsigned short*)((char*)this->backBuffer+jobb_offset);
+                if (jobb_hossz>0)
+                    for (int i=0; i<jobb_hossz_sample; i++){
+                        buffer[2*(bal_hossz_sample+i)+0] = c * (float)bbuffer[ch*i+cs] - .5;
+                        buffer[2*(bal_hossz_sample+i)+1] = 0.0f;
+                    }
+
+        }   }
+    }
+    else throw 5;
 }
 
 void WavRead::fillBuffer(int size, int offset, void* buffer){
@@ -110,13 +202,13 @@ void WavRead::fillBuffer(int size, int offset, void* buffer){
 		this->fillBuffer();
 		this->swapBuffer();
 	}
-	
+
 	int _offset = offset - (this->bytesRead-2*bufsize);
-	if (_offset<0) 
+	if (_offset<0)
 		throw 4;
-	if (!buffer) 
+	if (!buffer)
 		throw 2;
-	if (_offset+size>2*bufsize) 
+	if (_offset+size>2*bufsize)
 		throw 1;
 
 	int left = (size+_offset)-this->bufsize;
@@ -131,7 +223,7 @@ void WavRead::fillBuffer(int size, int offset, void* buffer){
 		int jobb_hossz = size - bal_hossz;
 
 		if (bal_hossz > 0)
-			memcpy(&((char*)buffer)[0], &((char*)this->frontBuffer)[bal_offset], bal_hossz); 
+			memcpy(&((char*)buffer)[0], &((char*)this->frontBuffer)[bal_offset], bal_hossz);
 
 		if (jobb_hossz>0)
 			memcpy(&((char*)buffer)[bal_hossz], &((char*)this->backBuffer)[jobb_offset], jobb_hossz);
@@ -139,7 +231,7 @@ void WavRead::fillBuffer(int size, int offset, void* buffer){
 		//memset(buffer, 0, size);
 	}
 
-	if(offset>=bufsize) {
+	if(_offset>=bufsize) {
 		this->fillBuffer();
 		this->swapBuffer();
 	}

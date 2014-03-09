@@ -6,13 +6,17 @@ namespace{
 	int offset;
 
     void fill_audio(void *udata, Uint8 *stream, int len){
-        WavRead *reader = (WavRead*)udata;
+        try {
+            WavRead *reader = (WavRead*)udata;
 
-        if(reader->isEndOfStream()) return;
+            if(reader->isEndOfStream()) return;
 
-        // SDL_MixAudio(stream, (const Uint8*)reader->getBuffer(), len, SDL_MIX_MAXVOLUME);
-		reader->fillBuffer(len, offset, stream);
-		offset += len;
+            // SDL_MixAudio(stream, (const Uint8*)reader->getBuffer(), len, SDL_MIX_MAXVOLUME);
+            reader->fillBuffer(len, offset, stream);
+            offset += len;
+        } catch (int e){
+            printf("ERROR Except: %d\r\n", e); // itt ki kene lepni
+        }
     }
 }
 
@@ -21,7 +25,7 @@ int WavPlayer::InitAudio(WavRead* reader){
 	format.format = reader->getSDLAudioFormat();
     format.channels = reader->getChannels();
     format.callback = fill_audio;
-    format.samples = AUDIO_BUFFER_LEN; 
+    format.samples = AUDIO_BUFFER_LEN;
     format.userdata = reader;
 
 	offset = 0;
