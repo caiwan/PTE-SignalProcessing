@@ -43,8 +43,8 @@ void drawBars(const complex *data, int samplelen, int x, int y, int w, int h, SD
     for(int px=0; px<pos.w; px++){
         //
         if (px>=samplelen) return;
-        float f = 20*log10f(data[px].re / (float)samplelen);
-        float f = data[px].re / (float)samplelen;
+        float f = 20*log10f(1.+data[px].re / (float)samplelen);
+        //float f = data[px].re / (float)samplelen;
         float h = fabs(f)*(float)pos.h;
         for(int py=0; py<pos.h; py++){
             if(py<h)
@@ -63,7 +63,7 @@ int main(int argc, char* argv[]){
     SDL_Event event;
 
     SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO);
-    screen = SDL_SetVideoMode(640, 480, 32, SDL_SWSURFACE | SDL_DOUBLEBUF | SDL_HWSURFACE);
+    screen = SDL_SetVideoMode(640, 480, 32, SDL_SWSURFACE | SDL_DOUBLEBUF /*| SDL_HWSURFACE*/);
 
     printf("FFT WavViz by Caiwan^IR \r\n");
 
@@ -85,10 +85,11 @@ int main(int argc, char* argv[]){
     }
 
     try{
-		FFT* fft = new FFT(FFT_SAMPLE);
 		Timer* timer = new Timer();
         WavRead *reader = new WavRead(fp);
         WavPlayer::InitAudio(reader);
+
+        FFT* fft = new FFT(FFT_SAMPLE, reader->getSamplingFreq());
 
 		WavPlayer::PlayAudio();
 

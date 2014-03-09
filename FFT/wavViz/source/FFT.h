@@ -58,7 +58,7 @@ class FFT {
 		void step (int n, int mj, complex *a, complex *b, complex *c, complex *d, float sgn);
 
 	public:
-		FFT(int samplesize);
+		FFT(int samplesize, int samplerate);
 		virtual ~FFT();
 
 		void calculate();

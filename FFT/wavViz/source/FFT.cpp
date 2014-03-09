@@ -1,7 +1,7 @@
 #include "FFT.h"
 
 
-FFT::FFT(int samplesize){
+FFT::FFT(int samplesize, int samplerate){
 	this->Wn = new complex[samplesize / 2];
 	this->x = new complex[samplesize];
 	this->y = new complex[samplesize];
@@ -13,7 +13,8 @@ FFT::FFT(int samplesize){
 	int i, n2;
 
 	n2 = samplesize / 2;
-	aw = 2.0 * M_PI / ((float)samplesize );
+	//aw = 2.0 * M_PI / ((float)samplesize );
+	aw = 2.0 * M_PI / ((float)samplerate);
 
 	for ( i = 0; i < n2; i++ ){
 		arg = aw * ((double)i);
