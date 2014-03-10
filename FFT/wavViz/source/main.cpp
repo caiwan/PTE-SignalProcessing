@@ -24,7 +24,7 @@
 #include "wavplayer.h"
 #include "FFT.h"
 
-#define FFT_SAMPLE 1024
+#define FFT_SAMPLE 2048
 
 Uint32 getpixel(SDL_Surface *surface, int x, int y);
 void putpixel(SDL_Surface *surface, int x, int y, Uint32 pixel);
@@ -56,12 +56,13 @@ void drawBars(const complex *data, int samplerate, int samplelen, int x, int y, 
     float freqstep = ((float)samplelen / (float)(samplerate*pos.w));
 
     for(int px=0; px<pos.w; px++){
-        //if (px>=samplelen) return;
+        if (px>=samplelen) return;
 
         freq = (float)(px+1)*freqstep;
         ppos = logf(freq) * (float)samplelen;
 
-        vpos = (int)ppos;
+        //vpos = (int)ppos;
+		vpos = (int)px;
 
         if (vpos>samplelen) return;
 
@@ -116,7 +117,7 @@ int main(int argc, char* argv[]){
 
         bool running = true;
 
-		unsigned int dtime = 0, ttime = timer->getDeltaTimeMs(), frame = 0, frametime = 0, frameskip;
+		unsigned int dtime = 0, ttime = timer->getDeltaTimeMs(), frame = 0, frametime = 0, frameskip = 0;
 
         SDL_Event event;
         while (running) {

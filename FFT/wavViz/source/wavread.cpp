@@ -153,6 +153,8 @@ void WavRead::fillBufferComplex(int size, int offset, float* buffer, channel_t c
             int jobb_offset = _offset - this->bufsize;
             int jobb_hossz = _size - bal_hossz;
 
+			if (jobb_offset<0) jobb_offset = 0;
+
             int jobb_hossz_sample = jobb_hossz / align;
 
             //memcpy(&((char*)buffer)[0], &((char*)this->frontBuffer)[bal_offset], bal_hossz);
@@ -168,7 +170,8 @@ void WavRead::fillBufferComplex(int size, int offset, float* buffer, channel_t c
                 bbuffer = (unsigned short*)((char*)this->backBuffer+jobb_offset);
                 if (jobb_hossz>0)
                     for (int i=0; i<jobb_hossz_sample; i++){
-                        buffer[2*(bal_hossz_sample+i)+0] = c * (float)bbuffer[ch*i+cs] + c * (float)bbuffer[ch*i+cs] - .5;
+						float k = c * (float)bbuffer[ch*i+1] + c * (float)bbuffer[ch*i+0] - .5;
+                        buffer[2*(bal_hossz_sample+i)+0] = k;
                         buffer[2*(bal_hossz_sample+i)+1] = 0.0f;
                     }
             }
