@@ -24,12 +24,24 @@
 #include "wavplayer.h"
 #include "FFT.h"
 
-#define FFT_SAMPLE 512
+#define FFT_SAMPLE 1024
 
 Uint32 getpixel(SDL_Surface *surface, int x, int y);
 void putpixel(SDL_Surface *surface, int x, int y, Uint32 pixel);
 
-void drawBars(const complex *data, int samplelen, int x, int y, int w, int h, SDL_Surface *screen){
+float CubicInterpolate(float y0,float y1, float y2,float y3, float mu){
+   float a0,a1,a2,a3,mu2;
+
+   mu2 = mu*mu;
+   a0 = y3 - y2 - y0 + y1;
+   a1 = y0 - y1 - a0;
+   a2 = y2 - y0;
+   a3 = y1;
+
+   return(a0*mu*mu2+a1*mu2+a2*mu+a3);
+}
+
+void drawBars(const complex *data, int samplerate, int samplelen, int x, int y, int w, int h, SDL_Surface *screen){
     SDL_LockSurface(screen);
 
     SDL_Rect pos;
@@ -38,13 +50,22 @@ void drawBars(const complex *data, int samplelen, int x, int y, int w, int h, SD
     pos.w = (screen->w*w)/100;
     pos.h = (screen->h*h)/100;
 
-    int c = 0;
+    int c = 0, vpos;
+    float _samplerate = (float)samplerate; // todo ...
+    float freq = 0.0, ppos = 0.0;
+    float freqstep = ((float)samplelen / (float)(samplerate*pos.w));
 
     for(int px=0; px<pos.w; px++){
-        //
-        if (px>=samplelen) return;
-        float f = 20*log10f(1.+data[px].re / (float)samplelen);
-        //float f = data[px].re / (float)samplelen;
+        //if (px>=samplelen) return;
+
+        freq = (float)(px+1)*freqstep;
+        ppos = logf(freq) * (float)samplelen;
+
+        vpos = (int)ppos;
+
+        if (vpos>samplelen) return;
+
+        float f = data[vpos].re / ((float)(samplelen)*.25);
         float h = fabs(f)*(float)pos.h;
         for(int py=0; py<pos.h; py++){
             if(py<h)
@@ -118,8 +139,7 @@ int main(int argc, char* argv[]){
                     reader->fillBufferComplex(FFT_SAMPLE, offset, (float*)fft->getInputBuffer(), WavRead::CH_MONO);
                     fft->calculate();
 
-                    drawBars(fft->getLastResult(), FFT_SAMPLE, 0, 0, 100, 90, screen);
-
+                    drawBars(fft->getLastResult(), reader->getSamplingFreq(), FFT_SAMPLE, 0, 0, 100, 90, screen);
 #endif
                 } else {
                     // mono
