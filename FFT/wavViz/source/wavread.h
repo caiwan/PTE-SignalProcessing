@@ -8,7 +8,7 @@
 #include <cstdio>
 #include <SDL/SDL_audio.h>
 
-#define AUDIO_BUFFER_LEN 4096
+#define AUDIO_BUFFER_LEN 16384
 
 class WavRead;
 
@@ -45,6 +45,8 @@ class WavRead
 
         } header;
 
+		int isLocked, isFilled;
+
         int bufsize, streamlen, bytesRead;
         int _isEndOfStream, activeBuffer;
         void *buffer[3];  // triplabuffer
@@ -66,6 +68,8 @@ class WavRead
 		inline int getBytesRead(){return this->bytesRead;}
 		inline int getSamplesRead(){return this->bytesRead/this->header.fmt_chunk.blockAlign;}
 
+		inline int isBufferChanged(){if(this->isFilled){this->isFilled = 0; return 1;} return 0;}
+
 		//inline int getFrontB
 		typedef enum channel_e{
 			CH_MONO,
@@ -74,7 +78,8 @@ class WavRead
 		} channel_t;
 
 		// retetek byteban ertendok
-		void fillBufferComplex(int sample, int offset, float* buffer, channel_t channel);
+		void fillBufferComplex(float* buffer, channel_t channel);
+		//void fillBufferComplex(int sample, int offset, float* buffer, channel_t channel);
 		void fillBuffer(int size, int offset, void* buffer);
 
         inline int getSamplingFreq(){return this->header.fmt_chunk.samplesPerSec;}

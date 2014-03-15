@@ -13,8 +13,8 @@ FFT::FFT(int samplesize, int samplerate){
 	int i, n2;
 
 	n2 = samplesize / 2;
-	//aw = 2.0 * M_PI / ((float)samplesize );
-	aw = 2.0 * M_PI / ((float)samplerate);
+	aw = 2.0 * M_PI / ((float)samplesize );
+	//aw = 2.0 * M_PI / ((float)samplerate);
 
 	for ( i = 0; i < n2; i++ ){
 		arg = aw * ((double)i);
@@ -26,6 +26,15 @@ FFT::~FFT(void){
 	if (this->Wn) delete this->Wn;
 	if(this->x) delete this->x;
 	if(this->y) delete this->y;
+}
+
+void FFT::calculate(float *inbuf){
+	for(int i=0; i<this->samplesize; i++){
+		this->x[i].re = inbuf[i];
+		this->x[i].im = 0;
+	}
+	
+	this->calculate();
 }
 
 void FFT::calculate(){

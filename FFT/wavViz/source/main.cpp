@@ -21,29 +21,12 @@
 #include <cstdio>
 
 #include "wavread.h"
-#include "wavplayer.h"
+#include "SDLhelper.h"
 #include "FFT.h"
 
-#define FFT_SAMPLE 2048
-
-Uint32 getpixel(SDL_Surface *surface, int x, int y);
-void putpixel(SDL_Surface *surface, int x, int y, Uint32 pixel);
-
-float CubicInterpolate(float y0,float y1, float y2,float y3, float mu){
-   float a0,a1,a2,a3,mu2;
-
-   mu2 = mu*mu;
-   a0 = y3 - y2 - y0 + y1;
-   a1 = y0 - y1 - a0;
-   a2 = y2 - y0;
-   a3 = y1;
-
-   return(a0*mu*mu2+a1*mu2+a2*mu+a3);
-}
+#define FFT_SAMPLE 16384
 
 void drawBars(const complex *data, int samplerate, int samplelen, int x, int y, int w, int h, SDL_Surface *screen){
-    SDL_LockSurface(screen);
-
     SDL_Rect pos;
     pos.x = (screen->w*x)/100;
     pos.y = (screen->h*y)/100;
@@ -51,41 +34,125 @@ void drawBars(const complex *data, int samplerate, int samplelen, int x, int y, 
     pos.h = (screen->h*h)/100;
 
     int c = 0, vpos;
+	unsigned char *cc = (unsigned char*)&c;
     float _samplerate = (float)samplerate; // todo ...
-    float freq = 0.0, ppos = 0.0;
-    float freqstep = ((float)samplelen / (float)(samplerate*pos.w));
+    float freq = 0.0, ppos = 0.0, t = 0.0;
+	float fft_freqstep = 1./(float) samplerate;
+    float freqstep = 3./(float)pos.w; // 10^4 nagysagrendig megyunk
+
+	float scale = 3./((float)(samplelen));
+	
+    SDL_LockSurface(screen);
 
     for(int px=0; px<pos.w; px++){
-        if (px>=samplelen) return;
+        freq = 20*pow(10,(float)(px)*freqstep);
+		ppos = (float)(samplelen-4) * freq * fft_freqstep;
 
-        freq = (float)(px+1)*freqstep;
-        ppos = logf(freq) * (float)samplelen;
+		vpos = (int)floor(ppos);
+		t = ppos - (float)vpos;
 
-        //vpos = (int)ppos;
-		vpos = (int)px;
+		if (vpos>=samplelen) return;
 
-        if (vpos>samplelen) return;
+        float f0 = data[vpos+0].re * scale;
+		float f1 = data[vpos+1].re * scale;
+		float f2 = data[vpos+2].re * scale;
+		float f3 = data[vpos+3].re * scale;
 
-        float f = data[vpos].re / ((float)(samplelen)*.25);
-        float h = fabs(f)*(float)pos.h;
+        float h = fabs(CubicInterpolate(f0, f1, f2, f3, t))*(float)pos.h;
+
         for(int py=0; py<pos.h; py++){
-            if(py<h)
-            c = 0xFFFFFFFF;
+            if(py<h){
+				cc[2] = (py * 255) / pos.h;
+				cc[1] = 255 - (py * 255) / pos.h;
+				cc[0] = 0x00;
+				cc[3] = 0xff;
+			}
             else c = 0x0;
-            putpixel(screen, pos.x+px, pos.y+py, c);
+            putpixel(screen, pos.x+px, pos.y+(pos.h-py), c);
         }
     }
 
     SDL_UnlockSurface(screen);
 }
 
+unsigned char *initDrawSpectogram( int x, int y, int w, int h, unsigned char*buffer, SDL_Surface *screen){
+	SDL_Rect pos;
+    pos.x = (screen->w*x)/100;
+    pos.y = (screen->h*y)/100;
+    pos.w = (screen->w*w)/100;
+    pos.h = (screen->h*h)/100;
+
+	unsigned char *bbuffer = buffer;
+
+	if (!bbuffer){
+		bbuffer = new unsigned char [pos.w*pos.h];
+		memset(bbuffer, 0, pos.w*pos.h);
+	} else {
+		// realloc ... 
+	}
+
+	return bbuffer;
+}
+
+int drawSpectogram(const complex *data, int samplerate, int samplelen, int x, int y, int w, int h, unsigned char*buffer, int time, SDL_Surface *screen){
+    SDL_Rect pos;
+    pos.x = (screen->w*x)/100;
+    pos.y = (screen->h*y)/100;
+    pos.w = (screen->w*w)/100;
+    pos.h = (screen->h*h)/100;
+
+    int c = 0, vpos;
+	
+	unsigned char *cc = &buffer[pos.h*time];
+
+    float _samplerate = (float)samplerate; // todo ...
+    float freq = 0.0, ppos = 0.0, t = 0.0;
+	float fft_freqstep = 1./(float) samplerate;
+    float freqstep = 3./(float)pos.h; // 10^4 nagysagrendig megyunk
+
+	float scale = 15./((float)(samplelen));
+
+    for(int py=0; py<pos.h; py++){
+        freq = 20.*pow(10,(float)(py)*freqstep);
+		ppos = (float)(samplelen-4) * freq * fft_freqstep;
+
+		vpos = (int)floor(ppos);
+		t = ppos - (float)vpos;
+
+		if (vpos>=samplelen) return (time+1)%pos.w;
+
+        float f0 = data[vpos+0].re * scale, f1 = data[vpos+1].re * scale, f2 = data[vpos+2].re * scale, f3 = data[vpos+3].re * scale;
+		float f = fabs(CubicInterpolate(f0, f1, f2, f3, t));
+		f = (f>1.)?1.:f;
+		f = (f<0.)?0.:f;
+		cc[py] = (unsigned char)(f * 255);
+    }
+
+	SDL_LockSurface(screen);
+	unsigned int color;
+	cc = (unsigned char*)&color; int i; unsigned char k;
+	for(int x = 0; x<pos.w; ++x)
+		for(int y = 0; y<pos.h; ++y){
+			i = x*pos.h+y; k = buffer[i];
+			cc[0] = k; cc[2] = k; cc[1] = k;
+			cc[3] = 0xff;
+			putpixel(screen, pos.x+x, pos.y+(pos.h-y), color);
+		}
+
+    SDL_UnlockSurface(screen);
+
+	return (time+1)%pos.w;
+}
+
 int main(int argc, char* argv[]){
-    SDL_Surface *screen;
+    SDL_Surface *screen = NULL;
 
     SDL_Event event;
 
     SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO);
-    screen = SDL_SetVideoMode(640, 480, 32, SDL_SWSURFACE | SDL_DOUBLEBUF /*| SDL_HWSURFACE*/);
+	//screen = SDL_SetVideoMode(512, 320, 32, SDL_SWSURFACE | SDL_DOUBLEBUF);
+    screen = SDL_SetVideoMode(1024, 640, 32, SDL_SWSURFACE | SDL_DOUBLEBUF /*| SDL_HWSURFACE*/);
+	//screen = SDL_SetVideoMode(1920, 1080, 32, SDL_SWSURFACE | SDL_DOUBLEBUF |SDL_FULLSCREEN);
 
     printf("FFT WavViz by Caiwan^IR \r\n");
 
@@ -109,6 +176,24 @@ int main(int argc, char* argv[]){
     try{
 		Timer* timer = new Timer();
         WavRead *reader = new WavRead(fp);
+
+		SDL_Rect pos1, pos2;
+		unsigned char *spectogram1 = NULL, *spectogram2 = NULL;
+		if (reader->getChannels() == 2){
+			pos1.x = 0; pos1.y = 0;
+			pos1.w = 100; pos1.h = 43;
+
+			pos2.x = 0; pos2.y = 46;
+			pos2.w = 100; pos2.h = 43;
+			
+			spectogram2 = initDrawSpectogram(pos2.x, pos2.y, pos2.w, pos2.h, spectogram2, screen);
+		} else {
+			pos1.x = 0; pos1.y = 0;
+			pos1.w = 100; pos1.h = 70;
+		}
+
+		spectogram1 = initDrawSpectogram(pos1.x, pos1.y, pos1.w, pos1.h, spectogram1, screen);
+
         WavPlayer::InitAudio(reader);
 
         FFT* fft = new FFT(FFT_SAMPLE, reader->getSamplingFreq());
@@ -116,39 +201,53 @@ int main(int argc, char* argv[]){
 		WavPlayer::PlayAudio();
 
         bool running = true;
+		unsigned int dtime = timer->getDeltaTimeMs(), ttime = 0, frame = 0, frametime = 0, frameskip = 0;
+		unsigned int btime = 0, s1time = 0, s2time = 0;
 
-		unsigned int dtime = 0, ttime = timer->getDeltaTimeMs(), frame = 0, frametime = 0, frameskip = 0;
+		int offset = 0, getnext = 1;
+
+		float *fft_buffer[2];
+		fft_buffer[0]= new float[2*AUDIO_BUFFER_LEN];
+		if (reader->getChannels() == 2) fft_buffer[1] = new float[2*AUDIO_BUFFER_LEN]; else fft_buffer[1] = NULL;
 
         SDL_Event event;
+
         while (running) {
             try {
-                int offset = (ttime * reader->getSamplingFreq() / 1000);
-                if(offset < reader->getBufferStartSample()) offset = reader->getBufferStartSample();
+				if (reader->isBufferChanged()){ 
+					btime = 0; getnext = 1;
+				} else { 
+					btime += dtime; getnext = 0;
+				}
+
+				offset = btime * reader->getSamplingFreq() / 1000;
+
+				if (offset>AUDIO_BUFFER_LEN) throw 1;
+				//if (offset<0) throw 1;
 
                 if (reader->getChannels() == 2){
-#if 0
-                    reader->fillBufferComplex(FFT_SAMPLE, offset, (float*)fft->getInputBuffer(), WavRead::CH_LEFT);
-                    fft->calculate();
+					if (getnext) reader->fillBufferComplex(fft_buffer[0], WavRead::CH_LEFT);
+                    fft->calculate(&fft_buffer[0][offset]);
+                    drawBars(fft->getLastResult(), reader->getSamplingFreq(), FFT_SAMPLE, 0, 85, 49, 15, screen);
+					s1time = drawSpectogram(fft->getLastResult(), reader->getSamplingFreq(), FFT_SAMPLE, pos1.x, pos1.y, pos1.w, pos1.h, spectogram1, s1time, screen);
 
-                    drawBars(fft->getLastResult(), FFT_SAMPLE, 0, 0, 49, 90, screen);
+					if (getnext) reader->fillBufferComplex(fft_buffer[1], WavRead::CH_RIGHT);
+					fft->calculate(&fft_buffer[1][offset]);
+                    drawBars(fft->getLastResult(), reader->getSamplingFreq(), FFT_SAMPLE, 51, 85, 49, 15, screen);
+					s2time = drawSpectogram(fft->getLastResult(), reader->getSamplingFreq(), FFT_SAMPLE, pos2.x, pos2.y, pos2.w, pos2.h, spectogram1, s2time, screen);
 
-                    reader->fillBufferComplex(FFT_SAMPLE, offset, (float*)fft->getInputBuffer(), WavRead::CH_RIGHT);
-                    fft->calculate();
-
-                    drawBars(fft->getLastResult(), FFT_SAMPLE, 51, 0, 49, 90, screen);
-#else
-                    reader->fillBufferComplex(FFT_SAMPLE, offset, (float*)fft->getInputBuffer(), WavRead::CH_MONO);
-                    fft->calculate();
-
-                    drawBars(fft->getLastResult(), reader->getSamplingFreq(), FFT_SAMPLE, 0, 0, 100, 90, screen);
-#endif
+					getnext = 0;
                 } else {
-                    // mono
+					if (getnext) reader->fillBufferComplex(fft_buffer[0], WavRead::CH_MONO);
+                    fft->calculate(&fft_buffer[0][offset]);
+                    drawBars(fft->getLastResult(), reader->getSamplingFreq(), FFT_SAMPLE, 0, 85, 100, 15, screen);
+					s1time = drawSpectogram(fft->getLastResult(), reader->getSamplingFreq(), FFT_SAMPLE, pos1.x, pos1.y, pos1.w, pos1.h, spectogram1, s1time, screen);
+					getnext = 0;
                 }
 
             } catch (int e){
                 // egyes esetekben lemarad a bufferrol, ezert el kell dobni 1-1 framet emiatt sajnos.
-                if (e == 4)
+                if (e == 4 || e == 1)
                     frameskip ++ ;
                 else throw e;
             }
@@ -192,9 +291,12 @@ int main(int argc, char* argv[]){
 
         WavPlayer::DestroyAudio();
 
-        delete reader;
-		delete timer;
-		delete fft;
+        if (reader) delete reader;
+		if (timer) delete timer;
+		if (fft) delete fft;
+
+		if (fft_buffer[0]) delete fft_buffer[0];
+		if (fft_buffer[1]) delete fft_buffer[1];
 
     } catch (int e){
         printf("Could not open file. Error code: %d\r\n",e);
@@ -204,81 +306,5 @@ int main(int argc, char* argv[]){
 
     return 0;
 }
-/////////////////////////////////////////////////////////////////////////
-// Ezeket majd ki kell dobalni egy kulon fileba
-Uint32 getpixel(SDL_Surface *surface, int x, int y)
-{
-    if (x<0) return -1;
-    if (y<0) return -1;
 
-    if (x>=surface->w) return -1;
-    if (y>=surface->h) return -1;
-
-    int bpp = surface->format->BytesPerPixel;
-    /* Here p is the address to the pixel we want to retrieve */
-    Uint8 *p = (Uint8 *)surface->pixels + y * surface->pitch + x * bpp;
-
-    switch(bpp) {
-    case 1:
-        return *p;
-        break;
-
-    case 2:
-        return *(Uint16 *)p;
-        break;
-
-    case 3:
-        if(SDL_BYTEORDER == SDL_BIG_ENDIAN)
-            return p[0] << 16 | p[1] << 8 | p[2];
-        else
-            return p[0] | p[1] << 8 | p[2] << 16;
-        break;
-
-    case 4:
-        return *(Uint32 *)p;
-        break;
-
-    default:
-        return 0;       /* shouldn't happen, but avoids warnings */
-    }
-}
-
-void putpixel(SDL_Surface *surface, int x, int y, Uint32 pixel)
-{
-    if (x<0) return;
-    if (y<0) return;
-
-    if (x>=surface->w) return;
-    if (y>=surface->h) return;
-
-    int bpp = surface->format->BytesPerPixel;
-    /* Here p is the address to the pixel we want to set */
-    Uint8 *p = (Uint8 *)surface->pixels + y * surface->pitch + x * bpp;
-
-    switch(bpp) {
-    case 1:
-        *p = pixel;
-        break;
-
-    case 2:
-        *(Uint16 *)p = pixel;
-        break;
-
-    case 3:
-        if(SDL_BYTEORDER == SDL_BIG_ENDIAN) {
-            p[0] = (pixel >> 16) & 0xff;
-            p[1] = (pixel >> 8) & 0xff;
-            p[2] = pixel & 0xff;
-        } else {
-            p[0] = pixel & 0xff;
-            p[1] = (pixel >> 8) & 0xff;
-            p[2] = (pixel >> 16) & 0xff;
-        }
-        break;
-
-    case 4:
-        *(Uint32 *)p = pixel;
-        break;
-    }
-}
 

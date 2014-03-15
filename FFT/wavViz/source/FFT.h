@@ -61,6 +61,7 @@ class FFT {
 		FFT(int samplesize, int samplerate);
 		virtual ~FFT();
 
+		void calculate(float *inbuf);
 		void calculate();
 
 		inline const complex_t *getInputBuffer(){return this->x;}

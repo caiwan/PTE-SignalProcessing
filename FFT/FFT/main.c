@@ -175,7 +175,9 @@ void fft_cfft2 ( int n, complex *x, complex *y, complex *w, complex_elem_t sgn )
 // --------------------------------------------------------------
 // main
 
-float data[] = {0.f,1.f,2.f,3.f};
+//float data[] = {0.f,1.f,2.f,3.f};
+int sampleTimes [] = {1,2,10}
+int samples[] = {16, 32, 64, 128, 256};
 
 int main(){
 	int datasize, i = 0;
@@ -193,8 +195,8 @@ int main(){
 
 	//for (i=0; i<datasize; i++){src_dts[i].re = data[i]; src_dts[i].im = 0.f;}
 	
-	for (i=0; i<datasize; i++){
-		src_dts[i].re = 2.*cos(.1*.1*M_PI*(float)i+0); 
+	for (n=0; n<datasize; n++){
+		src_dts[i].re = cos(omega*n+phi);
 		src_dts[i].im = 0.f;
 	}
 	

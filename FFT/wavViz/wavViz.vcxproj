@@ -60,17 +60,18 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalDependencies>SDL.lib;SDLmain.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="source\FFT.h" />
-    <ClInclude Include="source\wavplayer.h" />
+    <ClInclude Include="source\SDLhelper.h" />
     <ClInclude Include="source\wavread.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\FFT.cpp" />
     <ClCompile Include="source\main.cpp" />
-    <ClCompile Include="source\wavplayer.cpp" />
+    <ClCompile Include="source\SDLhelper.cpp" />
     <ClCompile Include="source\wavread.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
