@@ -3,7 +3,7 @@
 
 #include <SDL/SDL_audio.h>
 #include <SDL/SDL.h>
-#include "wavread.h"
+#include "../AudioProcesisng/wavread.h"
 
 namespace WavPlayer{
     extern int InitAudio(WavRead* reader);

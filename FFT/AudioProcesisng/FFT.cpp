@@ -1,6 +1,5 @@
 #include "FFT.h"
 
-
 FFT::FFT(int samplesize, int samplerate){
 	this->Wn = new complex[samplesize / 2];
 	this->x = new complex[samplesize];

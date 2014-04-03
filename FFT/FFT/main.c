@@ -143,7 +143,7 @@ void fft_cfft2 ( int n, complex *x, complex *y, complex *w, complex_elem_t sgn )
 	int j, m, mj;
 	int tgle;
 
-	m = ( int ) ( log ( ( double ) n ) / log ( 1.99 ) );
+	m = (int) (log((double)n)/log(1.99));
 	mj   = 1;
 
 	tgle = 1;
@@ -176,49 +176,83 @@ void fft_cfft2 ( int n, complex *x, complex *y, complex *w, complex_elem_t sgn )
 // main
 
 //float data[] = {0.f,1.f,2.f,3.f};
-int sampleTimes [] = {1,2,10}
+
+#define SIZEOF_ARRAY(x) (sizeof(x)/sizeof(*x))
+
+int sampleTimes [] = {1,2,10};
 int samples[] = {16, 32, 64, 128, 256};
 
 int main(){
-	int datasize, i = 0;
+	int datasize, datasizeMax, i = 0, n = 0, t = 0;
 	complex *src_dts, *Wn, *res_dft, *res_fft;
+	float theta, omega, samplingTime, aw, af;
 
-	//datasize = sizeof(data)/sizeof(*data);
-	datasize = 1<<4;	//2^4 
+	//datasize = SIZEOF_ARRAY(data);
+	datasize = datasizeMax = 1<<8;	//2^4 
 
-	src_dts = (complex*)malloc(datasize*sizeof(*src_dts));
+	src_dts = (complex*)malloc(datasizeMax*sizeof(*src_dts));
 
-	Wn = (complex*)malloc((datasize/2)*sizeof(*Wn));
+	Wn = (complex*)malloc((datasizeMax/2)*sizeof(*Wn));
 
-	res_dft = (complex*)malloc(datasize*sizeof(*res_dft));
-	res_fft = (complex*)malloc(datasize*sizeof(*res_fft));
-
-	//for (i=0; i<datasize; i++){src_dts[i].re = data[i]; src_dts[i].im = 0.f;}
+	//res_dft = (complex*)malloc(datasizeMax*sizeof(*res_dft));
+	res_fft = (complex*)malloc(datasizeMax*sizeof(*res_fft));
 	
-	for (n=0; n<datasize; n++){
-		src_dts[i].re = cos(omega*n+phi);
-		src_dts[i].im = 0.f;
-	}
+	/////////////////////////////////////////////////////////
+	// 1.
+
+	datasize = 1<<6; // 2^6
+
+	omega = M_PI*.1f;
+	fft_cffti(datasize, Wn);
+
+	for (i=0; i<SIZEOF_ARRAY(sampleTimes); i++){
+		theta=omega*(float)sampleTimes[i];
+
+		for (n=0; n<datasize; n++){
+			src_dts[n].re = cos(theta*(float)n);
+			src_dts[n].im = 0.f;
+		}
 	
-	fft_cffti(datasize, Wn); 
-	//cffti(datasize, (complex_elem_t*)Wn); 
+		fft_cfft2(datasize, src_dts, res_fft, Wn, -1.0f);
 
-	DFT(src_dts, datasize, res_dft);
-	fft_cfft2(datasize, src_dts, res_fft, Wn, -1.0f);
-
-	printf("DFT:\n");
-	for(i=0; i<datasize; i++){
-		printf("D[%d] = %3.2f %c j*%3.2f \n", i, res_dft[i].re, (res_dft[i].im<0)?'-':'+', (res_dft[i].im<0)?-res_dft[i].im:res_dft[i].im);
+		printf("N,f,omega,Re{D[N]},Im{D[N]},theta=%3.2f\n", theta);
+		for(n=0; n<datasize; n++){
+			//printf("D[%d] = %3.2f %c j*%3.2f \n", n, res_fft[n].re, (res_fft[n].im<0)?'-':'+', (res_fft[n].im<0)?-res_fft[n].im:res_fft[n].im);
+			af = .5* (float)(1+n) / (float)sampleTimes[i];
+			aw = 2.*M_PI * af;
+			printf("%d,%3.2f,%3.2f,%3.2f,%3.2f\n", n, af, aw, res_fft[n].re, res_fft[n].im);
+		}
 	}
 
-	printf("\ncfft2 FFT:\n");
-	for(i=0; i<datasize; i++){
-		printf("D[%d] = %3.2f %c j*%3.2f \n", i, res_fft[i].re, (res_fft[i].im<0)?'-':'+', (res_fft[i].im<0)?-res_fft[i].im:res_fft[i].im);
+	/////////////////////////////////////////////////////////
+	// 2.
+
+	theta = omega;
+
+	for (i=0; i<SIZEOF_ARRAY(samples); i++){
+
+		datasize = samples[i];
+
+		for (n=0; n<datasize; n++){
+			src_dts[n].re = cos(theta*(float)n);
+			src_dts[n].im = 0.f;
+		}
+	
+		fft_cffti(datasize, Wn); 
+		fft_cfft2(datasize, src_dts, res_fft, Wn, -1.0f);
+
+		printf("N,omega,Re{D[N]},Im{D[N]},samples=%d\n", datasize);
+		for(n=0; n<datasize; n++){
+			//printf("D[%d] = %3.2f %c j*%3.2f \n", n, res_fft[n].re, (res_fft[n].im<0)?'-':'+', (res_fft[n].im<0)?-res_fft[n].im:res_fft[n].im);
+			af = .5* (float)(1+n) / (float)sampleTimes[i];
+			aw = 2.*M_PI * af;
+			printf("%d,%3.2f,%3.2f,%3.2f,%3.2f\n", n, af, aw, res_fft[n].re, res_fft[n].im);
+		}
 	}
 
 	free(Wn);
 	free(src_dts);
-	free(res_dft); 
+	//free(res_dft); 
 	free(res_fft); 
 	return 0;
 }

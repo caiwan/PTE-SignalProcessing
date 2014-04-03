@@ -68,5 +68,9 @@ class FFT {
 		inline const complex_t *getLastResult(){return this->y;}
 };
 
+class FFT32{
+	// ... 
+};
+
 #endif /*FFT_H*/
 

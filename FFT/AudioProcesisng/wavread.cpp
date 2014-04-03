@@ -14,17 +14,30 @@ WavRead::WavRead(FILE* infile)
 	fread(&this->header.main_chunk, sizeof(this->header.main_chunk), 1, this->infile);
 
     //Wav header ellenorzese
-	if(this->header.main_chunk.RIFF[0] != 'R' || this->header.main_chunk.RIFF[1] != 'I' || this->header.main_chunk.RIFF[2] != 'F') throw 2; //<- endianessre nem vagyunk tekintettel
-    // egyelore nem foglalkozunk vele
+	if(this->header.main_chunk.RIFF[0] != 'R' || this->header.main_chunk.RIFF[1] != 'I' || this->header.main_chunk.RIFF[2] != 'F') throw 2; 
+	// endianessre nem vagyunk tekintettel, ha "RIFF" helyett "RIFX" szerepel, akkor big endian kodolast hasznal
+
+    // egyelore nem foglalkozunk vele, ha nem little endian, eldobjuk
+	if (this->header.main_chunk.RIFF[2] != 'F')  throw 2; 
 
 	fread(&this->header.WAVE, 4, 1, this->infile);
     if(this->header.WAVE[0] != 'W' || this->header.WAVE[1] != 'A' || this->header.WAVE[2] != 'V' || this->header.WAVE[3] != 'E') throw 2;
 
 	fread(&this->header.fmt_chunk, sizeof(this->header.fmt_chunk), 1, this->infile);
 	if(this->header.fmt_chunk.fmt [0] != 'f' || this->header.fmt_chunk.fmt [1] != 'm' || this->header.fmt_chunk.fmt [2] != 't' || this->header.fmt_chunk.fmt [3] != ' ') throw 2;
-    // tarolt audio tipusa, ha nem 1, akkor valamilyen tomoritest hasznal -> nem tudunk vele mit kezdeni
+    
+	// tarolt audio tipusa, ha nem 1, akkor valamilyen tomoritest hasznal -> nem tudunk vele mit kezdeni
     if(this->header.fmt_chunk.audioFormat != 1) throw 3;
 
+	// jelenleg csak 8 illetve 16 bites mintakkal rendelkezo filet tudunk kezelni
+	if(this->header.fmt_chunk.bitsPerSample != 8 && this->header.fmt_chunk.bitsPerSample != 16) throw 4;
+
+	// //////////////////
+	// bug:
+	// a format chunkot kovethetik extra infok; ennek meretet a format chunkot koveto 16 bites szo irja le
+	// a prolema, hogy nem minden wav ilyen, valamelyik ha nem tartalmaz ilyent nulla ertek szerepel
+	// valamelyikben pedig egybol kovetkezik a "data" string
+	// mivel standard inputrol is olvas, nincs lehetoseg a fileseekre, ezert olvasas kozben kell ezt eldonteni
 	fread(&this->header.extraParamSize, sizeof(this->header.extraParamSize), 1, this->infile);
 	if (this->header.extraParamSize == 0x6164 || this->header.extraParamSize == 0x6461){
 		fread(&this->header.extraParamSize, sizeof(this->header.extraParamSize), 1, this->infile);
@@ -37,6 +50,7 @@ WavRead::WavRead(FILE* infile)
 		fread(&this->header.data_chunk, sizeof(this->header.data_chunk), 1, this->infile);
 	}
 
+#ifdef _DEBUG
 #if 1 /*debug info*/
 	printf("ChunkSize = %d \n", this->header.main_chunk.chunkSize);
 	printf("Subchunk1Size (fmt) = %d\n", this->header.fmt_chunk.subchunk1Size);
@@ -49,6 +63,10 @@ WavRead::WavRead(FILE* infile)
 	printf("BlockAlignment = %d\n", this->header.fmt_chunk.blockAlign);
     printf("HeaderLength = %d\n", sizeof(this->header));	// <- block_alignment !
 #endif /*debug info*/
+#endif /*_DEBUG*/
+
+	// bufferek feltoltese
+	// harmat hasznal, egyikbe olvas, egyik az aktualis, egy pedig a tartalek.
 
     //this->bufsize = AUDIO_BUFFER_LEN * this->header.fmt_chunk.numOfChan * (this->header.fmt_chunk.bitsPerSample/8);
 	this->bufsize = AUDIO_BUFFER_LEN * this->header.fmt_chunk.blockAlign;
@@ -58,6 +76,9 @@ WavRead::WavRead(FILE* infile)
 	this->buffer[2] = new char[this->bufsize];
 
     //this->activeBuffer = 0;
+
+	//
+	// adattagok inicializalasa
 
     this->bytesRead = 0;
 	this->streamlen = header.data_chunk.subchunk2Size;
@@ -113,6 +134,7 @@ void WavRead::swapBuffer(){
 }
 
 // visszaadja mindket buffer tartalmat teljes egeszeben
+// 
 void WavRead::fillBufferComplex(float* buffer, channel_t channel){
 	if (!this->frontBuffer) while(!this->frontBuffer); // ez is rossz megoldas
 	if (this->isLocked) while(this->isLocked); 
@@ -154,111 +176,6 @@ void WavRead::fillBufferComplex(float* buffer, channel_t channel){
 		}
 	}
 }
-
-// ez teljes egeszeben hibas
-//void WavRead::fillBufferComplex(int size, int offset, float* buffer, channel_t channel){
-//    this->isLocked = 1;
-//	if (!this->frontBuffer){
-//		return;
-//		this->isLocked = 0;
-//
-//		this->frontBuffer =	this->buffer[0];
-//		this->backBuffer = this->buffer[1];
-//
-//		this->fillBuffer();
-//		this->swapBuffer();
-//		this->fillBuffer();
-//		this->swapBuffer();
-//	}
-//
-//    int align = this->header.fmt_chunk.blockAlign;
-//    int _size = size * align;
-//    int _offset = offset * align - (this->bytesRead-2*bufsize);
-//
-//	if (_offset<0)
-//		throw 4;
-//	if (!buffer)
-//		throw 2;
-//	if (_offset+_size>2*bufsize)
-//		throw 1;
-//
-//    int left = (_size+_offset)-this->bufsize;
-//    float c = 1./(float)(1<<this->header.fmt_chunk.bitsPerSample);
-//
-//    int ch = this->header.fmt_chunk.numOfChan;
-//    int cs = (channel==CH_RIGHT && ch==2)?1:0;
-//
-//    if(this->header.fmt_chunk.bitsPerSample == 8){
-//
-//    }
-//    else if(this->header.fmt_chunk.bitsPerSample == 16){
-//        unsigned short *bbuffer = (unsigned short*)((char*)this->frontBuffer+_offset);
-//        if (left<0){
-//            if (channel == CH_MONO && ch == 2){
-//                c *= .5;
-//                for (int i=0; i<size; i++){
-//                    buffer[2*i+0] = c * (float)bbuffer[ch*i+cs] + c * (float)bbuffer[ch*i+cs] - .5;
-//                    buffer[2*i+1] = 0.0f;
-//                }
-//            }
-//            else
-//                for (int i=0; i<size; i++){
-//                    buffer[2*i+0] = c * (float)bbuffer[ch*i+cs] - .5;
-//                    buffer[2*i+1] = 0.0f;
-//                }
-//        }else{
-//            int bal_offset = _offset;
-//            int bal_hossz = this->bufsize - bal_offset;
-//            if (bal_hossz<0) bal_hossz = 0;
-//
-//            int bal_hossz_sample = bal_hossz / align;
-//
-//            int jobb_offset = _offset - this->bufsize;
-//            int jobb_hossz = _size - bal_hossz;
-//
-//			if (jobb_offset<0) jobb_offset = 0;
-//
-//            int jobb_hossz_sample = jobb_hossz / align;
-//
-//            //memcpy(&((char*)buffer)[0], &((char*)this->frontBuffer)[bal_offset], bal_hossz);
-//            if (channel == CH_MONO && ch == 2){
-//                c *= .5;
-//                bbuffer = (unsigned short*)((char*)this->frontBuffer+bal_offset);
-//                if (bal_hossz > 0)
-//                    for (int i=0; i<bal_hossz_sample; i++){
-//                        buffer[2*i+0] = c * (float)bbuffer[ch*i+cs] + c * (float)bbuffer[ch*i+cs] - .5;
-//                        buffer[2*i+1] = 0.0f;
-//                    }
-//
-//                bbuffer = (unsigned short*)((char*)this->backBuffer+jobb_offset);
-//                if (jobb_hossz>0)
-//                    for (int i=0; i<jobb_hossz_sample; i++){
-//						float k = c * (float)bbuffer[ch*i+1] + c * (float)bbuffer[ch*i+0] - .5;
-//                        buffer[2*(bal_hossz_sample+i)+0] = k;
-//                        buffer[2*(bal_hossz_sample+i)+1] = 0.0f;
-//                    }
-//            }
-//            else{
-//                bbuffer = (unsigned short*)((char*)this->frontBuffer+bal_offset);
-//                if (bal_hossz > 0)
-//                    for (int i=0; i<bal_hossz_sample; i++){
-//                        buffer[2*i+0] = c * (float)bbuffer[ch*i+cs]- .5;
-//                        buffer[2*i+1] = 0.0f;
-//                    }
-//
-//                bbuffer = (unsigned short*)((char*)this->backBuffer+jobb_offset);
-//                if (jobb_hossz>0)
-//                    for (int i=0; i<jobb_hossz_sample; i++){
-//                        buffer[2*(bal_hossz_sample+i)+0] = c * (float)bbuffer[ch*i+cs] - .5;
-//                        buffer[2*(bal_hossz_sample+i)+1] = 0.0f;
-//                    }
-//
-//        }   }
-//    }
-//    else throw 5;
-//
-//	this->isLocked = 0;
-//}
 
 void WavRead::fillBuffer(int size, int offset, void* buffer){
 	//this->isLocked = 1;
@@ -310,4 +227,69 @@ void WavRead::fillBuffer(int size, int offset, void* buffer){
 		this->fillBuffer();
 		this->swapBuffer();
 	}
+}
+
+/**********************************************************************************************************/
+
+WavWrite::WavWrite(FILE* outfile, int samplerate, int channel, int lengthInSample, int is8bit){
+	this->outfile = outfile;
+	
+	if(!this->outfile) throw 2;
+	if(channel > 2) throw 3;
+
+	memset(&this->header, 0, sizeof(this->header));
+	
+	// a wav file olyan, hogy elore kell ismerni a teljes adatsor meretet
+	// nem lehet streaming formatumot csinalni beloe, mint mas formatumokbol
+	// 
+
+	//
+	// 1) main chunk feltoltese
+	this->header.main_chunk.RIFF[0] = 'R';	// ezz messze nem elegans modszer
+	this->header.main_chunk.RIFF[1] = 'I';
+	this->header.main_chunk.RIFF[2] = 'F';
+	this->header.main_chunk.RIFF[3] = 'F';
+	
+	int block = (is8bit)?channel:2*channel; 
+	int header = sizeof(this->header);
+
+	this->header.main_chunk.chunkSize = block*lengthInSample + header - 8;
+	
+	//
+	// 2) "WAVE"
+	this->header.WAVE[0] = 'W';
+	this->header.WAVE[1] = 'A';
+	this->header.WAVE[2] = 'V';
+	this->header.WAVE[3] = 'E';
+
+	//
+	// 3) format chunk feltoltese
+	this->header.fmt_chunk.fmt[0] = 'f';
+	this->header.fmt_chunk.fmt[1] = 'm';
+	this->header.fmt_chunk.fmt[2] = 't';
+	this->header.fmt_chunk.fmt[3] = ' ';
+
+	this->header.fmt_chunk.subchunk1Size = sizeof(this->header.fmt_chunk) - 8;
+	this->header.fmt_chunk.audioFormat = 1;					// csak PCM wavot vagyunk kepesek irni (format=1)
+	this->header.fmt_chunk.bitsPerSample = is8bit?(8):(16); // csak 8 illetve 16 bites mintakkal tudunk dolgozni
+	this->header.fmt_chunk.blockAlign = block;
+	this->header.fmt_chunk.numOfChan = channel;
+	this->header.fmt_chunk.samplesPerSec = samplerate;
+	this->header.fmt_chunk.bytesPerSec = block * samplerate;
+
+	//
+	// 4) data chunk
+	this->header.data_chunk.subchunk2ID[0] = 'd';
+	this->header.data_chunk.subchunk2ID[1] = 'a';
+	this->header.data_chunk.subchunk2ID[2] = 't';
+	this->header.data_chunk.subchunk2ID[3] = 'a';
+
+	this->header.data_chunk.subchunk2Size = block * lengthInSample;
+
+	// 5) kiirjuk a kesz headert
+	fwrite(&this->header, sizeof(this->header), 1, this->outfile);
+}
+
+WavWrite::~WavWrite(){
+	// ... 
 }

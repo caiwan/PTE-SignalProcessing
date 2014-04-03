@@ -20,9 +20,11 @@
 #include <cstdlib>
 #include <cstdio>
 
-#include "wavread.h"
+#include "../AudioProcesisng/FFT.h"
+#include "../AudioProcesisng/Filter.h"
+#include "../AudioProcesisng/wavread.h"
+
 #include "SDLhelper.h"
-#include "FFT.h"
 
 #define FFT_SAMPLE 16384
 
@@ -35,9 +37,9 @@ void drawBars(const complex *data, int samplerate, int samplelen, int x, int y, 
 
     int c = 0, vpos;
 	unsigned char *cc = (unsigned char*)&c;
-    float _samplerate = (float)samplerate; // todo ...
+    float _samplerate = (float)samplerate;
     float freq = 0.0, ppos = 0.0, t = 0.0;
-	float fft_freqstep = 1./(float) samplerate;
+	float fft_freqstep = 2./(float) samplerate;
     float freqstep = 3./(float)pos.w; // 10^4 nagysagrendig megyunk
 
 	float scale = 3./((float)(samplelen));
