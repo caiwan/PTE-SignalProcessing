@@ -46,12 +46,13 @@ int main(int argc, char **argv){
 	FFT *fft = NULL;
 	FreqFilter::FilterChain *chain = NULL;
 
-	complex *buf;
+	float *buf = NULL;
 
 	try {
 		// rw
 		reader = new WavRead(inf);
-		
+		buf = new float[AUDIO_BUFFER_LEN];
+
 		// ww
 		writer = new WavWrite(outf, reader->getSamplingFreq(), reader->getChannels(), reader->getLengthInSample(), reader->getIs8Bit());
 
@@ -60,12 +61,23 @@ int main(int argc, char **argv){
 		chain = new FreqFilter::FilterChain(AUDIO_BUFFER_LEN, reader->getSamplingFreq());
 
 		while (reader->isEndOfStream()){
-			// beolvas
-			// ido -> fft
-			// fft -> fchain -> fft'
-			// fft' -> ido
-			// kiir
 			// streamet leptet
+			// beolvas
+			reader->fillBuffer();
+			reader->fillBufferComplex(buf, WavRead::CH_MONO);
+
+			// ido -> fft
+			fft->calculate(buf);
+
+			// fft -> fchain -> fft'
+			chain->calculate(fft->getLastResult(), fft->getInputBuffer());
+
+			// fft' -> ido
+			fft->calculate();
+			for(int i=0; i<AUDIO_BUFFER_LEN; i++) buf[i] = fft->getLastResult()[i].re;
+
+			// kiir
+			writer->writeComplex_old(buf, AUDIO_BUFFER_LEN);
 		}
 
 	} catch (int e){

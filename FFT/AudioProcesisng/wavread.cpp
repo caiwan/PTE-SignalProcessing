@@ -293,3 +293,22 @@ WavWrite::WavWrite(FILE* outfile, int samplerate, int channel, int lengthInSampl
 WavWrite::~WavWrite(){
 	// ... 
 }
+
+void WavWrite::writeComplex_old(float *data, int length){
+	float v0 = 0.0, v1 = 0.0, vk = (float)((1<<this->header.fmt_chunk.bitsPerSample)-1);
+	int vi1 = 0, vi0 = 0;
+	int bl = (this->header.fmt_chunk.bitsPerSample == 8)?1:2;
+
+	for(int i=0; i<length; i++){
+		if (this->header.fmt_chunk.numOfChan == 2){
+			v0 = data[2*i+0]; vi0 = (int)(v0*vk);
+			v1 = data[2*i+1]; vi1 = (int)(v1*vk);
+			fwrite(&vi0, bl, 1, this->outfile);
+			fwrite(&vi1, bl, 1, this->outfile);
+		}
+		else{
+			v0 = data[i]; vi0 = (int)(v0*vk);
+			fwrite(&vi0, bl, 1, this->outfile);
+		}
+	}
+}

@@ -64,7 +64,7 @@ class FFT {
 		void calculate(float *inbuf);
 		void calculate();
 
-		inline const complex_t *getInputBuffer(){return this->x;}
+		inline complex_t *getInputBuffer(){return this->x;}
 		inline const complex_t *getLastResult(){return this->y;}
 };
 

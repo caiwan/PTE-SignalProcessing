@@ -8,8 +8,6 @@
 * tobbfele filtert lehet definialni, maiket ossze lehet fuzni egy filter chainbe
 * 
 */
-
-
 namespace FreqFilter{	
 	class FilterChain;
 
@@ -42,8 +40,8 @@ namespace FreqFilter{
 			FilterChain(int windowsize, int samplerate);
 			virtual ~FilterChain();
 
-			void addFilter(Filter *filter);
-			void calculate(complex* inbuf, complex *outbuf);
+			inline void addFilter(Filter *filter){this->filterList.push_back(filter);}
+			void calculate(const complex* inbuf, complex *outbuf);
 	};
 
 	//

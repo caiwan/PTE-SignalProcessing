@@ -78,7 +78,8 @@ class WavRead
 
 		/// Forras stream
         FILE *infile;
-		
+	
+	public:
 		/// feltolti a buffer
 		void fillBuffer();
 
@@ -181,9 +182,13 @@ class WavWrite{
 			@param lengthInSample
 			@param is8bit
 		*/
-
 		WavWrite(FILE* outfile, int samplerate, int channel, int lengthInSample, int is8bit = 0);
+
+		/// Destruktor
 		~WavWrite();
+
+		/// 
+		void writeComplex_old(float *data, int length);
 };
 
 #endif // WAVREAD_H
