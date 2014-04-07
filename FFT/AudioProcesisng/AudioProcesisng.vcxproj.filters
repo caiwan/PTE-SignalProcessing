@@ -18,10 +18,13 @@
     <ClCompile Include="FFT.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Filter.cpp">
+    <ClCompile Include="wavread.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="wavread.cpp">
+    <ClCompile Include="FreqFilter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Filter.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -29,10 +32,13 @@
     <ClInclude Include="FFT.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Filter.h">
+    <ClInclude Include="wavread.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="wavread.h">
+    <ClInclude Include="FreqFilter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="filter.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

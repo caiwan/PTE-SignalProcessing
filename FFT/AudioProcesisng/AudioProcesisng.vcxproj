@@ -64,11 +64,13 @@
   <ItemGroup>
     <ClCompile Include="FFT.cpp" />
     <ClCompile Include="Filter.cpp" />
+    <ClCompile Include="FreqFilter.cpp" />
     <ClCompile Include="wavread.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="FFT.h" />
-    <ClInclude Include="Filter.h" />
+    <ClInclude Include="filter.h" />
+    <ClInclude Include="FreqFilter.h" />
     <ClInclude Include="wavread.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

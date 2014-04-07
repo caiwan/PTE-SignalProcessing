@@ -2,9 +2,9 @@
 #include <cstdlib>
 #include <cstring>
 
-#include "../AudioProcesisng/FFT.h"
-#include "../AudioProcesisng/Filter.h"
-#include "../AudioProcesisng/wavread.h"
+#include "AudioProcesisng/FFT.h"
+#include "AudioProcesisng/Filter.h"
+#include "AudioProcesisng/wavread.h"
 
 int main(int argc, char **argv){
 	int isStdin = 0, isStdout = 0;
@@ -23,7 +23,8 @@ int main(int argc, char **argv){
 			inf = stdin;
 					isStdin = 1;
 		} else {
-			inf = fopen(argv[1], "rb");
+			inf = fopen(argv[1], "r");
+			//inf = fopen("g:\prog\kep_es_hang\trunk\FFT\test.wav", "r");
 					isStdin = 0;
 		}
 		
@@ -32,12 +33,14 @@ int main(int argc, char **argv){
 			outf = stdout;
 			isStdout = 1;
 		} else {
-			outf = fopen(argv[2], "wb");
+			outf = fopen(argv[2], "w");
 			isStdout = 0;
 		}
 	}
 
-	if (!inf || !outf) {printf("Cannot open file(s)"); return -1;}
+	if (!inf || !outf) {
+		printf("Cannot open file(s)"); return -1;
+	}
 
 	//////////////////////////////
 	WavRead *reader = NULL; 
@@ -58,26 +61,14 @@ int main(int argc, char **argv){
 
 		// fft, fchain
 		fft = new FFT(AUDIO_BUFFER_LEN, reader->getSamplingFreq());
-		chain = new FreqFilter::FilterChain(AUDIO_BUFFER_LEN, reader->getSamplingFreq());
+		//chain = new FreqFilter::FilterChain(AUDIO_BUFFER_LEN, reader->getSamplingFreq());
 
-		while (reader->isEndOfStream()){
-			// streamet leptet
-			// beolvas
-			reader->fillBuffer();
-			reader->fillBufferComplex(buf, WavRead::CH_MONO);
+		//chain->addFilter(new FreqFilter::FilterLowPass(0,0,0));
 
-			// ido -> fft
-			fft->calculate(buf);
+//		return 0;
 
-			// fft -> fchain -> fft'
-			chain->calculate(fft->getLastResult(), fft->getInputBuffer());
+		while (!reader->isEndOfStream()){
 
-			// fft' -> ido
-			fft->calculate();
-			for(int i=0; i<AUDIO_BUFFER_LEN; i++) buf[i] = fft->getLastResult()[i].re;
-
-			// kiir
-			writer->writeComplex_old(buf, AUDIO_BUFFER_LEN);
 		}
 
 	} catch (int e){

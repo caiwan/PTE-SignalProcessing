@@ -102,6 +102,18 @@ WavRead::~WavRead()
 }
 
 void WavRead::fillBuffer(){
+	if (!this->frontBuffer){
+		//this->isLocked = 0;
+
+		this->frontBuffer =	this->buffer[0];
+		this->backBuffer = this->buffer[1];
+
+		this->fillBuffer();
+		this->swapBuffer();
+		this->fillBuffer();
+		this->swapBuffer();
+	}
+
     if(!infile) throw 1;
     if(this->_isEndOfStream) throw 2;
 
@@ -179,17 +191,6 @@ void WavRead::fillBufferComplex(float* buffer, channel_t channel){
 
 void WavRead::fillBuffer(int size, int offset, void* buffer){
 	//this->isLocked = 1;
-	if (!this->frontBuffer){
-		//this->isLocked = 0;
-
-		this->frontBuffer =	this->buffer[0];
-		this->backBuffer = this->buffer[1];
-
-		this->fillBuffer();
-		this->swapBuffer();
-		this->fillBuffer();
-		this->swapBuffer();
-	}
 
 	if (this->isLocked) while(this->isLocked); 
 
@@ -277,6 +278,8 @@ WavWrite::WavWrite(FILE* outfile, int samplerate, int channel, int lengthInSampl
 	this->header.fmt_chunk.samplesPerSec = samplerate;
 	this->header.fmt_chunk.bytesPerSec = block * samplerate;
 
+	//this->header.extraParamSize = 2; // hahaha
+
 	//
 	// 4) data chunk
 	this->header.data_chunk.subchunk2ID[0] = 'd';
@@ -287,7 +290,13 @@ WavWrite::WavWrite(FILE* outfile, int samplerate, int channel, int lengthInSampl
 	this->header.data_chunk.subchunk2Size = block * lengthInSample;
 
 	// 5) kiirjuk a kesz headert
-	fwrite(&this->header, sizeof(this->header), 1, this->outfile);
+	//fwrite(&this->header, sizeof(this->header), 1, this->outfile);
+	// sajnos csak darabokba lehet a block alignment miatt
+	fwrite(&this->header.main_chunk, sizeof(this->header.main_chunk), 1, this->outfile);
+	fwrite(&this->header.WAVE, sizeof(this->header.WAVE), 1, this->outfile);
+	fwrite(&this->header.fmt_chunk, sizeof(this->header.fmt_chunk), 1, this->outfile);
+	fwrite(&this->header.data_chunk, sizeof(this->header.data_chunk), 1, this->outfile);
+	fflush(this->outfile);
 }
 
 WavWrite::~WavWrite(){
@@ -296,19 +305,30 @@ WavWrite::~WavWrite(){
 
 void WavWrite::writeComplex_old(float *data, int length){
 	float v0 = 0.0, v1 = 0.0, vk = (float)((1<<this->header.fmt_chunk.bitsPerSample)-1);
-	int vi1 = 0, vi0 = 0;
+	int vi1 = 0, vi0 = 0; 
+	unsigned char vc; unsigned int vs;
 	int bl = (this->header.fmt_chunk.bitsPerSample == 8)?1:2;
 
 	for(int i=0; i<length; i++){
 		if (this->header.fmt_chunk.numOfChan == 2){
 			v0 = data[2*i+0]; vi0 = (int)(v0*vk);
 			v1 = data[2*i+1]; vi1 = (int)(v1*vk);
-			fwrite(&vi0, bl, 1, this->outfile);
-			fwrite(&vi1, bl, 1, this->outfile);
+			if (this->header.fmt_chunk.bitsPerSample == 8) {
+				vc = (vi0 & 0xff); fwrite(&vc, 1, 1, this->outfile);
+				vc = (vi1 & 0xff); fwrite(&vc, 1, 1, this->outfile);
+			} else {
+				vs = (vi0 & 0xffff); fwrite(&vs, 2, 1, this->outfile);
+				vs = (vi1 & 0xffff); fwrite(&vs, 2, 1, this->outfile);
+			}
+			//fprintf(this->outfile, "%d %d ",vi0, vi1);
 		}
 		else{
 			v0 = data[i]; vi0 = (int)(v0*vk);
-			fwrite(&vi0, bl, 1, this->outfile);
+			if (this->header.fmt_chunk.bitsPerSample == 8) {
+				vc = (vi0 & 0xff); fwrite(&vc, 1, 1, this->outfile);
+			} else {
+				vs = (vi0 & 0xffff); fwrite(&vs, 2, 1, this->outfile);
+			}
 		}
 	}
 }
