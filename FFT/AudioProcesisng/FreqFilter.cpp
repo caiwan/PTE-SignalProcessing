@@ -1,4 +1,4 @@
-#include "Filter.h"
+#include "FreqFilter.h"
 
 FreqFilter::Filter::Filter(){
 	this->freq_chr = NULL;

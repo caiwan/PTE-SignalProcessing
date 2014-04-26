@@ -3,7 +3,7 @@
 #include <cstring>
 
 #include "AudioProcesisng/FFT.h"
-#include "AudioProcesisng/Filter.h"
+#include "AudioProcesisng/FreqFilter.h"
 #include "AudioProcesisng/wavread.h"
 
 int main(int argc, char **argv){

@@ -102,7 +102,7 @@ WavRead::~WavRead()
 }
 
 void WavRead::fillBuffer(){
-	if (!this->frontBuffer){
+	if (!this->frontBuffer || !this->backBuffer){
 		//this->isLocked = 0;
 
 		this->frontBuffer =	this->buffer[0];
@@ -112,6 +112,8 @@ void WavRead::fillBuffer(){
 		this->swapBuffer();
 		this->fillBuffer();
 		this->swapBuffer();
+
+		return;
 	}
 
     if(!infile) throw 1;
@@ -134,6 +136,7 @@ void WavRead::fillBuffer(){
     this->bytesRead += data_read;
 	
 	this->isLocked = 0;
+	this->isFilled = 1;
    // printf("%d bytes read in %d block             \r", this->bytesRead, data_read);
 }
 
@@ -163,13 +166,13 @@ void WavRead::fillBufferComplex(float* buffer, channel_t channel){
 		if (channel == CH_MONO && ch == 2){
 			c *= .5;
 			for(int i=0; i<bs; ++i){
-				buffer[i              ] = .5 + c*((float)fbuf[ch*i+cs] + (float)fbuf[ch*i+cs]);
-				buffer[bs+i] = .5 + c*((float)bbuf[ch*i+cs] + (float)bbuf[ch*i+cs]);
+				buffer[i   ] = -.5 + c*((float)fbuf[ch*i+cs] + (float)fbuf[ch*i+cs]);
+				buffer[bs+i] = -.5 + c*((float)bbuf[ch*i+cs] + (float)bbuf[ch*i+cs]);
 			}
 		}else{
 			for(int i=0; i<bs; ++i){
-				buffer[i              ] = .5 + c * (float)fbuf[ch*i+cs];
-				buffer[bs+i] = .5 + c * (float)bbuf[ch*i+cs];
+				buffer[i   ] = -.5 + c * (float)fbuf[ch*i+cs];
+				buffer[bs+i] = -.5 + c * (float)bbuf[ch*i+cs];
 			}
 		}
 	} else if (this->header.fmt_chunk.bitsPerSample == 16){
@@ -177,13 +180,55 @@ void WavRead::fillBufferComplex(float* buffer, channel_t channel){
 		if (channel == CH_MONO && ch == 2){
 			c *= .5;
 			for(int i=0; i<bs; ++i){
-				buffer[i              ] = .5 + c*((float)fbuf[ch*i+cs] + (float)fbuf[ch*i+cs]);
-				buffer[bs+i] = .5 + c*((float)bbuf[ch*i+cs] + (float)bbuf[ch*i+cs]);
+				buffer[i   ] = -.5 + c*((float)fbuf[ch*i+cs] + (float)fbuf[ch*i+cs]);
+				buffer[bs+i] = -.5 + c*((float)bbuf[ch*i+cs] + (float)bbuf[ch*i+cs]);
 			}
 		}else{
 			for(int i=0; i<bs; ++i){
-				buffer[i              ] = .5 + c * (float)fbuf[ch*i+cs];
-				buffer[bs+i] = .5 + c * (float)bbuf[ch*i+cs];
+				buffer[i   ] = -.5 + c * (float)fbuf[ch*i+cs];
+				buffer[bs+i] = -.5 + c * (float)bbuf[ch*i+cs];
+			}
+		}
+	}
+}
+
+void WavRead::fillBufferComplex(int* buffer, channel_t channel){
+	if (!this->frontBuffer) while(!this->frontBuffer); // ez is rossz megoldas
+	if (this->isLocked) while(this->isLocked); 
+
+	//float c = 2./(float)(1<<this->header.fmt_chunk.bitsPerSample);
+	int c = 65536/(1<<this->header.fmt_chunk.bitsPerSample);
+
+	int ch = this->header.fmt_chunk.numOfChan;
+	int cs = (channel==CH_RIGHT && ch==2)?1:0;
+	
+	int bs = this->bufsize / this->header.fmt_chunk.blockAlign;
+
+	if (this->header.fmt_chunk.bitsPerSample == 8){
+		unsigned char *fbuf = (unsigned char*) this->frontBuffer, *bbuf = (unsigned char*)this->backBuffer;
+		if (channel == CH_MONO && ch == 2){
+			c *= .5;
+			for(int i=0; i<bs; ++i){
+				buffer[i   ] = (c*(fbuf[ch*i+cs] + fbuf[ch*i+cs]) / 2) - 32768;
+				buffer[bs+i] = (c*(bbuf[ch*i+cs] + bbuf[ch*i+cs]) / 2) - 32768;
+			}
+		}else{
+			for(int i=0; i<bs; ++i){
+				buffer[i   ] =  c * fbuf[ch*i+cs] - 32768;
+				buffer[bs+i] =  c * bbuf[ch*i+cs] - 32768;
+			}
+		}
+	} else if (this->header.fmt_chunk.bitsPerSample == 16){
+		unsigned short *fbuf = (unsigned short*) this->frontBuffer, *bbuf = (unsigned short*)this->backBuffer;
+		if (channel == CH_MONO && ch == 2){
+			for(int i=0; i<bs; ++i){
+				buffer[i   ] = (c*(fbuf[ch*i+cs] + fbuf[ch*i+cs]) / 2) - 32768;
+				buffer[bs+i] = (c*(bbuf[ch*i+cs] + bbuf[ch*i+cs]) / 2) - 32768;
+			}
+		}else{
+			for(int i=0; i<bs; ++i){
+				buffer[i   ] = c * fbuf[ch*i+cs] - 32768;
+				buffer[bs+i] = c * bbuf[ch*i+cs] - 32768;
 			}
 		}
 	}
@@ -196,11 +241,11 @@ void WavRead::fillBuffer(int size, int offset, void* buffer){
 
 	int _offset = offset - (this->bytesRead-2*bufsize);
 	if (_offset<0)
-		throw 4;
+		throw 14;
 	if (!buffer)
-		throw 2;
+		throw 12;
 	if (_offset+size>2*bufsize)
-		throw 1;
+		throw 11;
 
 	int left = (size+_offset)-this->bufsize;
 	if (left<=0){
@@ -223,11 +268,12 @@ void WavRead::fillBuffer(int size, int offset, void* buffer){
 	}
 
 	//this->isLocked = 0;
-	
+	/*
 	if(_offset>=bufsize) {
 		this->fillBuffer();
 		this->swapBuffer();
 	}
+	*/
 }
 
 /**********************************************************************************************************/

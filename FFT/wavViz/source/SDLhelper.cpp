@@ -8,11 +8,16 @@ namespace{
     void fill_audio(void *udata, Uint8 *stream, int len){
         try {
             WavRead *reader = (WavRead*)udata;
-
-            if(reader->isEndOfStream()) return;
+			
+			if(reader->isEndOfStream()) return;
+			if(reader->getBytesRead()<offset+len){
+				reader->fillBuffer();
+				reader->swapBuffer();
+			}
 
             // SDL_MixAudio(stream, (const Uint8*)reader->getBuffer(), len, SDL_MIX_MAXVOLUME);
             reader->fillBuffer(len, offset, stream);
+
             offset += len;
         } catch (int e){
             printf("ERROR Except: %d\r\n", e); // itt ki kene lepni

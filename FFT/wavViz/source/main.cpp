@@ -39,7 +39,7 @@ void drawBars(const complex *data, int samplerate, int samplelen, int x, int y, 
 	unsigned char *cc = (unsigned char*)&c;
     float _samplerate = (float)samplerate;
     float freq = 0.0, ppos = 0.0, t = 0.0;
-	float fft_freqstep = 2./(float) samplerate;
+	float fft_freqstep = 1./(float) samplerate;
     float freqstep = 3./(float)pos.w; // 10^4 nagysagrendig megyunk
 
 	float scale = 3./((float)(samplelen));
@@ -152,8 +152,8 @@ int main(int argc, char* argv[]){
     SDL_Event event;
 
     SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO);
-	//screen = SDL_SetVideoMode(512, 320, 32, SDL_SWSURFACE | SDL_DOUBLEBUF);
-    screen = SDL_SetVideoMode(1024, 640, 32, SDL_SWSURFACE | SDL_DOUBLEBUF /*| SDL_HWSURFACE*/);
+	screen = SDL_SetVideoMode(512, 320, 32, SDL_SWSURFACE | SDL_DOUBLEBUF);
+    //screen = SDL_SetVideoMode(1024, 640, 32, SDL_SWSURFACE | SDL_DOUBLEBUF /*| SDL_HWSURFACE*/);
 	//screen = SDL_SetVideoMode(1920, 1080, 32, SDL_SWSURFACE | SDL_DOUBLEBUF |SDL_FULLSCREEN);
 
     printf("FFT WavViz by Caiwan^IR \r\n");
@@ -196,6 +196,8 @@ int main(int argc, char* argv[]){
 
 		spectogram1 = initDrawSpectogram(pos1.x, pos1.y, pos1.w, pos1.h, spectogram1, screen);
 
+
+		//reader->fillBuffer();
         WavPlayer::InitAudio(reader);
 
         FFT* fft = new FFT(FFT_SAMPLE, reader->getSamplingFreq());
@@ -224,7 +226,9 @@ int main(int argc, char* argv[]){
 
 				offset = btime * reader->getSamplingFreq() / 1000;
 
-				if (offset>AUDIO_BUFFER_LEN) throw 1;
+				if (offset>AUDIO_BUFFER_LEN) 
+					throw 115;
+
 				//if (offset<0) throw 1;
 
                 if (reader->getChannels() == 2){
@@ -249,7 +253,7 @@ int main(int argc, char* argv[]){
 
             } catch (int e){
                 // egyes esetekben lemarad a bufferrol, ezert el kell dobni 1-1 framet emiatt sajnos.
-                if (e == 4 || e == 1)
+                if (e == 14 || e == 11 || e ==115)
                     frameskip ++ ;
                 else throw e;
             }
