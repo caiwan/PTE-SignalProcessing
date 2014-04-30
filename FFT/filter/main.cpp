@@ -58,17 +58,13 @@ int main(int argc, char **argv){
 
 		// ww
 		writer = new WavWrite(outf, reader->getSamplingFreq(), reader->getChannels(), reader->getLengthInSample(), reader->getIs8Bit());
-
-		// fft, fchain
 		fft = new FFT(AUDIO_BUFFER_LEN, reader->getSamplingFreq());
-		//chain = new FreqFilter::FilterChain(AUDIO_BUFFER_LEN, reader->getSamplingFreq());
-
-		//chain->addFilter(new FreqFilter::FilterLowPass(0,0,0));
-
-//		return 0;
 
 		while (!reader->isEndOfStream()){
+			reader->fillBuffer();
+			reader->swapBuffer();
 
+			//writer->writeComplex_old();
 		}
 
 	} catch (int e){
