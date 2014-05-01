@@ -234,6 +234,38 @@ void WavRead::fillBufferComplex(int* buffer, channel_t channel){
 	}
 }
 
+void WavRead::fillBufferComplex(int* buffer){
+	if (!this->frontBuffer) while(!this->frontBuffer); // ez is rossz megoldas
+	if (this->isLocked) while(this->isLocked); 
+
+	//float c = 2./(float)(1<<this->header.fmt_chunk.bitsPerSample);
+	int c = 65536/(1<<this->header.fmt_chunk.bitsPerSample);
+
+	int ch = this->header.fmt_chunk.numOfChan;
+	
+	int bs = this->bufsize / this->header.fmt_chunk.blockAlign;
+
+	if (this->header.fmt_chunk.bitsPerSample == 8){
+		unsigned char *fbuf = (unsigned char*) this->frontBuffer, *bbuf = (unsigned char*)this->backBuffer;
+		if(c == 1){
+			// mono
+			for(int i=0; i<bs; i++){
+				buffer[2*i+0] = (c*(fbuf[i] + fbuf[i]) / 2) - 32768;
+				buffer[2*i+1] = 0;
+			}
+		}else if (ch==2){
+			// stereo
+			for(int i=0; i<bs; i++){
+				buffer[2*i+0] = (c*(fbuf[i] + fbuf[i]) / 2) - 32768;
+				buffer[2*i+1] =(c*(fbuf[i] + fbuf[i]) / 2) - 32768; 0;
+			}		
+		}
+
+	} else if (this->header.fmt_chunk.bitsPerSample == 16){
+		unsigned short *fbuf = (unsigned short*) this->frontBuffer, *bbuf = (unsigned short*)this->backBuffer;
+	}
+}
+
 void WavRead::fillBuffer(int size, int offset, void* buffer){
 	//this->isLocked = 1;
 
@@ -347,6 +379,40 @@ WavWrite::WavWrite(FILE* outfile, int samplerate, int channel, int lengthInSampl
 
 WavWrite::~WavWrite(){
 	// ... 
+}
+
+void WavWrite::write(int *left, int *right, int length){
+	if (!left) throw 52;
+	if (!right && this->header.fmt_chunk.numOfChan == 2) throw 53;
+
+	
+	if (this->header.fmt_chunk.bitsPerSample == 16){
+		for (int i=0; i<length; i++){
+			if (this->header.fmt_chunk.numOfChan == 2){
+				unsigned short
+					v1 = (unsigned short)((left[i]  + 0x7fff) % 0xffff), 
+					v2 = (unsigned short)((right[i] + 0x7fff) % 0xffff);
+				fwrite(&v1, 2, 1, this->outfile);
+				fwrite(&v2, 2, 1, this->outfile);
+			} else {
+				unsigned short v1 = (unsigned short)((left[i]  + 0x7fff) % 0xffff);
+				fwrite(&v1, 2, 1, this->outfile);
+			}
+		}
+	} else if (this->header.fmt_chunk.bitsPerSample == 8){
+		for (int i=0; i<length; i++){
+			if (this->header.fmt_chunk.numOfChan == 2){
+				unsigned char 
+					v1 = (unsigned char)(((left[i]  + 0x7fff) >> 8) % 0xff), 
+					v2 = (unsigned char)(((right[i] + 0x7fff) >> 8) % 0xff);
+				fwrite(&v1, 1, 1, this->outfile);
+				fwrite(&v2, 2, 1, this->outfile);
+			} else {
+				unsigned char v1 = (unsigned char)(((left[i]  + 0x7fff) >> 8) % 0xff);
+				fwrite(&v1, 1, 1, this->outfile);
+			}
+		}
+	}
 }
 
 void WavWrite::writeComplex_old(float *data, int length){

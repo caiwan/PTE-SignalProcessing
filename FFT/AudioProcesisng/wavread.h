@@ -128,6 +128,9 @@ class WavRead
 		/// A buffer tartalmat a kivalasztott csatornabol felirja komplex alakban [-32768..32768] intervallumon
 		void fillBufferComplex(int* buffer, channel_t channel);
 
+		/// A buffer tartalmat minden csatornabol felirja komplex alakban [-32768..32768] intervallumon
+		void fillBufferComplex(int* buffer);
+
 		/// Buffer tartalmat kiirja raw formaban
 		void fillBuffer(int size, int offset, void* buffer);
 
@@ -192,6 +195,9 @@ class WavWrite{
 
 		/// 
 		void writeComplex_old(float *data, int length);
+		
+		/// az ... 
+		void write(int *left, int *right, int length);
 };
 
 #endif // WAVREAD_H

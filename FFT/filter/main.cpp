@@ -54,17 +54,25 @@ int main(int argc, char **argv){
 	try {
 		// rw
 		reader = new WavRead(inf);
-		buf = new float[AUDIO_BUFFER_LEN];
 
 		// ww
 		writer = new WavWrite(outf, reader->getSamplingFreq(), reader->getChannels(), reader->getLengthInSample(), reader->getIs8Bit());
 		fft = new FFT(AUDIO_BUFFER_LEN, reader->getSamplingFreq());
 
+		// buf
+		int *buffer[2] = {NULL, NULL};
+		buffer[0] = new int [2*AUDIO_BUFFER_LEN];
+		if (reader->getChannels() == 2) buffer[1] = new int [2*AUDIO_BUFFER_LEN];
+
 		while (!reader->isEndOfStream()){
 			reader->fillBuffer();
 			reader->swapBuffer();
 
-			//writer->writeComplex_old();
+			reader->fillBufferComplex(buffer[0], WavRead::CH_LEFT);
+			if (reader->getChannels() == 2) 
+				reader->fillBufferComplex(buffer[1], WavRead::CH_RIGHT);
+
+			writer->write(buffer[0], buffer[1], AUDIO_BUFFER_LEN);
 		}
 
 	} catch (int e){
