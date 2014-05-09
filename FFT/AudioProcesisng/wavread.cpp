@@ -1,5 +1,7 @@
 #include "wavread.h"
 
+#include <Windows.h>
+
 WavRead::WavRead(FILE* infile)
 {
     if(!infile) throw 1;
@@ -150,29 +152,33 @@ void WavRead::swapBuffer(){
 
 // visszaadja mindket buffer tartalmat teljes egeszeben
 // 
-void WavRead::fillBufferComplex(float* buffer, channel_t channel){
+void WavRead::fillBufferComplex(double* buffer, channel_t channel, int len, int is32k){
 	if (!this->frontBuffer) while(!this->frontBuffer); // ez is rossz megoldas
 	if (this->isLocked) while(this->isLocked); 
 
-	float c = 2./(float)(1<<this->header.fmt_chunk.bitsPerSample);
+	double c = .5/(double)(1<<this->header.fmt_chunk.bitsPerSample);
+
+	if (is32k) c = 1.;
 
 	int ch = this->header.fmt_chunk.numOfChan;
 	int cs = (channel==CH_RIGHT && ch==2)?1:0;
 	
 	int bs = this->bufsize / this->header.fmt_chunk.blockAlign;
+	if (len && len<=bs) bs = len;
 
+	// ezek itt nem jok!
 	if (this->header.fmt_chunk.bitsPerSample == 8){
 		unsigned char *fbuf = (unsigned char*) this->frontBuffer, *bbuf = (unsigned char*)this->backBuffer;
 		if (channel == CH_MONO && ch == 2){
 			c *= .5;
 			for(int i=0; i<bs; ++i){
-				buffer[i   ] = -.5 + c*((float)fbuf[ch*i+cs] + (float)fbuf[ch*i+cs]);
-				buffer[bs+i] = -.5 + c*((float)bbuf[ch*i+cs] + (float)bbuf[ch*i+cs]);
+				buffer[i   ] = .5*c*((double)fbuf[ch*i+cs] + (double)fbuf[ch*i+cs]);
+				if (!len) buffer[bs+i] = .5*c*((double)bbuf[ch*i+cs] + (double)bbuf[ch*i+cs]);
 			}
 		}else{
 			for(int i=0; i<bs; ++i){
-				buffer[i   ] = -.5 + c * (float)fbuf[ch*i+cs];
-				buffer[bs+i] = -.5 + c * (float)bbuf[ch*i+cs];
+				buffer[i   ] = c * (double)fbuf[ch*i+cs];
+				if (!len) buffer[bs+i] = c * (double)bbuf[ch*i+cs];
 			}
 		}
 	} else if (this->header.fmt_chunk.bitsPerSample == 16){
@@ -180,91 +186,18 @@ void WavRead::fillBufferComplex(float* buffer, channel_t channel){
 		if (channel == CH_MONO && ch == 2){
 			c *= .5;
 			for(int i=0; i<bs; ++i){
-				buffer[i   ] = -.5 + c*((float)fbuf[ch*i+cs] + (float)fbuf[ch*i+cs]);
-				buffer[bs+i] = -.5 + c*((float)bbuf[ch*i+cs] + (float)bbuf[ch*i+cs]);
+				buffer[i   ] = ((double)fbuf[ch*i+cs] + (double)fbuf[ch*i+cs]) *.5*c;
+				if (!len) buffer[bs+i] = ((double)bbuf[ch*i+cs] + (double)bbuf[ch*i+cs]) *.5*c;
 			}
 		}else{
 			for(int i=0; i<bs; ++i){
-				buffer[i   ] = -.5 + c * (float)fbuf[ch*i+cs];
-				buffer[bs+i] = -.5 + c * (float)bbuf[ch*i+cs];
+				buffer[i   ] = (double)fbuf[ch*i+cs] * c;
+				if (!len) buffer[bs+i] = (double)bbuf[ch*i+cs] * c;
 			}
 		}
 	}
 }
 
-void WavRead::fillBufferComplex(int* buffer, channel_t channel){
-	if (!this->frontBuffer) while(!this->frontBuffer); // ez is rossz megoldas
-	if (this->isLocked) while(this->isLocked); 
-
-	//float c = 2./(float)(1<<this->header.fmt_chunk.bitsPerSample);
-	int c = 65536/(1<<this->header.fmt_chunk.bitsPerSample);
-
-	int ch = this->header.fmt_chunk.numOfChan;
-	int cs = (channel==CH_RIGHT && ch==2)?1:0;
-	
-	int bs = this->bufsize / this->header.fmt_chunk.blockAlign;
-
-	if (this->header.fmt_chunk.bitsPerSample == 8){
-		unsigned char *fbuf = (unsigned char*) this->frontBuffer, *bbuf = (unsigned char*)this->backBuffer;
-		if (channel == CH_MONO && ch == 2){
-			c *= .5;
-			for(int i=0; i<bs; ++i){
-				buffer[i   ] = (c*(fbuf[ch*i+cs] + fbuf[ch*i+cs]) / 2) - 32768;
-				buffer[bs+i] = (c*(bbuf[ch*i+cs] + bbuf[ch*i+cs]) / 2) - 32768;
-			}
-		}else{
-			for(int i=0; i<bs; ++i){
-				buffer[i   ] =  c * fbuf[ch*i+cs] - 32768;
-				buffer[bs+i] =  c * bbuf[ch*i+cs] - 32768;
-			}
-		}
-	} else if (this->header.fmt_chunk.bitsPerSample == 16){
-		unsigned short *fbuf = (unsigned short*) this->frontBuffer, *bbuf = (unsigned short*)this->backBuffer;
-		if (channel == CH_MONO && ch == 2){
-			for(int i=0; i<bs; ++i){
-				buffer[i   ] = (c*(fbuf[ch*i+cs] + fbuf[ch*i+cs]) / 2) - 32768;
-				buffer[bs+i] = (c*(bbuf[ch*i+cs] + bbuf[ch*i+cs]) / 2) - 32768;
-			}
-		}else{
-			for(int i=0; i<bs; ++i){
-				buffer[i   ] = c * fbuf[ch*i+cs] - 32768;
-				buffer[bs+i] = c * bbuf[ch*i+cs] - 32768;
-			}
-		}
-	}
-}
-
-void WavRead::fillBufferComplex(int* buffer){
-	if (!this->frontBuffer) while(!this->frontBuffer); // ez is rossz megoldas
-	if (this->isLocked) while(this->isLocked); 
-
-	//float c = 2./(float)(1<<this->header.fmt_chunk.bitsPerSample);
-	int c = 65536/(1<<this->header.fmt_chunk.bitsPerSample);
-
-	int ch = this->header.fmt_chunk.numOfChan;
-	
-	int bs = this->bufsize / this->header.fmt_chunk.blockAlign;
-
-	if (this->header.fmt_chunk.bitsPerSample == 8){
-		unsigned char *fbuf = (unsigned char*) this->frontBuffer, *bbuf = (unsigned char*)this->backBuffer;
-		if(c == 1){
-			// mono
-			for(int i=0; i<bs; i++){
-				buffer[2*i+0] = (c*(fbuf[i] + fbuf[i]) / 2) - 32768;
-				buffer[2*i+1] = 0;
-			}
-		}else if (ch==2){
-			// stereo
-			for(int i=0; i<bs; i++){
-				buffer[2*i+0] = (c*(fbuf[i] + fbuf[i]) / 2) - 32768;
-				buffer[2*i+1] =(c*(fbuf[i] + fbuf[i]) / 2) - 32768; 0;
-			}		
-		}
-
-	} else if (this->header.fmt_chunk.bitsPerSample == 16){
-		unsigned short *fbuf = (unsigned short*) this->frontBuffer, *bbuf = (unsigned short*)this->backBuffer;
-	}
-}
 
 void WavRead::fillBuffer(int size, int offset, void* buffer){
 	//this->isLocked = 1;
@@ -332,7 +265,7 @@ WavWrite::WavWrite(FILE* outfile, int samplerate, int channel, int lengthInSampl
 	int block = (is8bit)?channel:2*channel; 
 	int header = sizeof(this->header);
 
-	this->header.main_chunk.chunkSize = block*lengthInSample + header - 8;
+	this->header.main_chunk.chunkSize = block*lengthInSample + header - 8 - 2;
 	
 	//
 	// 2) "WAVE"
@@ -348,7 +281,7 @@ WavWrite::WavWrite(FILE* outfile, int samplerate, int channel, int lengthInSampl
 	this->header.fmt_chunk.fmt[2] = 't';
 	this->header.fmt_chunk.fmt[3] = ' ';
 
-	this->header.fmt_chunk.subchunk1Size = sizeof(this->header.fmt_chunk) - 8;
+	this->header.fmt_chunk.subchunk1Size = sizeof(this->header.fmt_chunk) - 8 + 2;
 	this->header.fmt_chunk.audioFormat = 1;					// csak PCM wavot vagyunk kepesek irni (format=1)
 	this->header.fmt_chunk.bitsPerSample = is8bit?(8):(16); // csak 8 illetve 16 bites mintakkal tudunk dolgozni
 	this->header.fmt_chunk.blockAlign = block;
@@ -356,7 +289,7 @@ WavWrite::WavWrite(FILE* outfile, int samplerate, int channel, int lengthInSampl
 	this->header.fmt_chunk.samplesPerSec = samplerate;
 	this->header.fmt_chunk.bytesPerSec = block * samplerate;
 
-	//this->header.extraParamSize = 2; // hahaha
+	//this->header.extraParamSize = 2; 
 
 	//
 	// 4) data chunk
@@ -373,7 +306,13 @@ WavWrite::WavWrite(FILE* outfile, int samplerate, int channel, int lengthInSampl
 	fwrite(&this->header.main_chunk, sizeof(this->header.main_chunk), 1, this->outfile);
 	fwrite(&this->header.WAVE, sizeof(this->header.WAVE), 1, this->outfile);
 	fwrite(&this->header.fmt_chunk, sizeof(this->header.fmt_chunk), 1, this->outfile);
+
+	fputc(0, this->outfile);
+	fputc(0, this->outfile);
+
 	fwrite(&this->header.data_chunk, sizeof(this->header.data_chunk), 1, this->outfile);
+
+	
 	fflush(this->outfile);
 }
 
@@ -381,42 +320,69 @@ WavWrite::~WavWrite(){
 	// ... 
 }
 
-void WavWrite::write(int *left, int *right, int length){
+//#define fclamp(x) (x<-1.?-1.:x>1.?1.:x) // nemmukodik
+#define fclamp(x) (x)
+
+void WavWrite::write(double *left, double *right, void* workbuffer, int length, int is32k){
+	if (length<=0) throw 51;
 	if (!left) throw 52;
 	if (!right && this->header.fmt_chunk.numOfChan == 2) throw 53;
 
-	
+#if 0
+	FILE *fp = fopen("teszt", "wb");
+	if (!fp) return;
+#else 
+	FILE *fp = this->outfile;
+#endif
+
+	float c = 32768., k = 1.;
+	if (is32k) c = 1., k = 32768.;
+
 	if (this->header.fmt_chunk.bitsPerSample == 16){
-		for (int i=0; i<length; i++){
+		//unsigned short *buf = reinterpret_cast<unsigned short *>(workbuffer);	
+		short *buf = reinterpret_cast<short *>(workbuffer);	
 			if (this->header.fmt_chunk.numOfChan == 2){
-				unsigned short
-					v1 = (unsigned short)((left[i]  + 0x7fff) % 0xffff), 
-					v2 = (unsigned short)((right[i] + 0x7fff) % 0xffff);
-				fwrite(&v1, 2, 1, this->outfile);
-				fwrite(&v2, 2, 1, this->outfile);
-			} else {
-				unsigned short v1 = (unsigned short)((left[i]  + 0x7fff) % 0xffff);
-				fwrite(&v1, 2, 1, this->outfile);
+				for (int i=0; i<length; i++){
+					int
+						v1 = (int)(fclamp(left[i ]) * c),
+						v2 = (int)(fclamp(right[i]) * c);
+
+					buf[2*i+0] = v1;
+					buf[2*i+1] = v2;
+				}
+			} else if (this->header.fmt_chunk.numOfChan == 1){
+				for (int i=0; i<length; i++){
+					short v1 = (short)(fclamp(left[i]) * c);
+					buf[i] = v1;
+				}
 			}
 		}
+	// TODO: 8 bitre is
+	/*
 	} else if (this->header.fmt_chunk.bitsPerSample == 8){
+		unsigned char *buf = reinterpret_cast<unsigned char*>(workbuffer);
 		for (int i=0; i<length; i++){
-			if (this->header.fmt_chunk.numOfChan == 2){
-				unsigned char 
-					v1 = (unsigned char)(((left[i]  + 0x7fff) >> 8) % 0xff), 
-					v2 = (unsigned char)(((right[i] + 0x7fff) >> 8) % 0xff);
-				fwrite(&v1, 1, 1, this->outfile);
-				fwrite(&v2, 2, 1, this->outfile);
+		if (this->header.fmt_chunk.numOfChan == 2){
+	//			unsigned char 
+	//				v1 = (unsigned char)(((left[i]  + 0x7fff) >> 8) & 0xff), 
+	//				v2 = (unsigned char)(((right[i] + 0x7fff) >> 8) & 0xff);
+	//			fwrite(&v1, 1, 1, this->outfile);
+	//			fwrite(&v2, 2, 1, this->outfile);
 			} else {
-				unsigned char v1 = (unsigned char)(((left[i]  + 0x7fff) >> 8) % 0xff);
-				fwrite(&v1, 1, 1, this->outfile);
+//				unsigned char v1 = (unsigned char)(((left[i]  + 0x7fff) >> 8) & 0xff);
+	//			fwrite(&v1, 1, 1, this->outfile);
 			}
 		}
 	}
+	*/
+	
+	// ededeti buffer ki, flush the toilet-
+	fwrite(workbuffer, this->header.fmt_chunk.blockAlign, length, fp);
+	fflush(fp);
 }
 
-void WavWrite::writeComplex_old(float *data, int length){
-	float v0 = 0.0, v1 = 0.0, vk = (float)((1<<this->header.fmt_chunk.bitsPerSample)-1);
+void WavWrite::writeComplex_old(double *data, int length){
+	double v0 = 0.0, v1 = 0.0, vk = (double)((1<<this->header.fmt_chunk.bitsPerSample)-1);
 	int vi1 = 0, vi0 = 0; 
 	unsigned char vc; unsigned int vs;
 	int bl = (this->header.fmt_chunk.bitsPerSample == 8)?1:2;

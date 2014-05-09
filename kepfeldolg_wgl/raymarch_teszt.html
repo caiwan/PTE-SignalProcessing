@@ -20,6 +20,10 @@ uniform float time;
 uniform vec2 mouse;
 uniform vec2 resolution;
 
+uniform mat4 fpar;
+
+#define M_PI 3.14159265359
+
 // Created by inigo quilez - iq/2013
 // License Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License.
 
@@ -115,13 +119,71 @@ vec3 opTwist3( vec3 p, float tc, float ts, float cc)
     return vec3(m*p.xz,p.y);
 }
 
+vec3 opBend(vec3 p, float g, float q)
+{
+    float  cx = cos(q*g);
+    float  sx = sin(q*g);
+    mat2   m = mat2(cx,-sx,sx,cx);
+    return vec3(m*p.xy,p.z);
+}
+
 //----------------------------------------------------------------------
+
+float hash(float x){
+	return fract(sin(2224.4234*x)*78546.68565);
+}
+
+float noise(float x){
+	float ff = floor(x);
+	float fr = fract(x);
+	return mix(hash(ff), hash(ff+1.), fr*fr*(3.-2.*fr)) * 2. - 1.;
+}
+
+// noise +2 oct
+float noise2(float x){
+	return .5*noise(x) + .25*noise(1.+2.*x) + .125 * noise(2.+4.*x);
+}
+
+//----------------------------------------------------------------------
+
+vec3 textureMap(in float m, in vec3 p){
+	if(m == 1.0){ // padlo
+		vec2 a = 1.05 * abs(1. - 2.*mod(p.xz, 1.));
+		return mix(vec3(.7,.7,.7), vec3(.5,.5,.7), clamp(pow(a.y, 50.)+pow(a.x, 50.),0.,1.));
+	} else if(m == 2.0){ // blob
+		return vec3(.5,.5,.2);
+	}
+	return vec3(0);
+}
 
 vec2 map( in vec3 pos )
 {
-	float r = udRoundBox(opTwist3(pos, 5.0, time, sin(time)), vec3(0.2,0.2,1.0), 0.1);	
-	//vec2 res = opU( vec2( sdPlane(pos), 1.0 ), vec2(r, (abs(pos.y) * 200.0 + 700.0)));
-	vec2 res = vec2(r, sin(pos.y) * 200.0 + 700.0); 
+	vec4 mod = vec4(vec3(0.1,0.1,0.1) + fpar[3].xyz * vec3(0., 0., 0.01), fpar[3].w/400.);
+	// fpar[3].xy szabad !
+	vec3 	ppos = pos - vec3(0., mod.z - .1, 0.);
+	vec3 	bpos = opBend(ppos, ppos.y, M_PI*(fpar[2].x-50.)/50.);
+			bpos = opBend(bpos, ppos.z, M_PI*(fpar[2].y-50.)/50.);
+			bpos = opBend(bpos, ppos.x, M_PI*(fpar[2].z-50.)/50.);
+	
+			// ez megfekteti a shader forditot:
+			//bpos -= vec3(0.,1.,1.) * vec3 (noise2(ppos.x), noise2(50.+ppos.x), noise2(2500.+ppos.z)) * (fpar[2].z-50.)/50.;
+	
+	vec2 res = opU
+	(
+		vec2(sdPlane(pos), 	// padlo
+			1.0 			// padlo - color index
+		),
+		
+		vec2(udRoundBox(	// hasab
+				opTwist(bpos , 
+					(fpar[3].x-50.) / 10., (fpar[3].y-50.) /10.
+				),
+				mod.xyz, mod.w	// modulacio
+			),	
+			2.0	// color index
+		)
+	);
+	
 	return res;
 }
 
@@ -159,7 +221,7 @@ float softshadow( in vec3 ro, in vec3 rd, in float mint, in float maxt, in float
         float h = map( ro + rd*t ).x;
         res = min( res, k*h/t );
 
-	t += 0.02;
+		t += 0.02;
 			
 		}
     }
@@ -202,27 +264,33 @@ vec3 render( in vec3 ro, in vec3 rd )
     {
         vec3 pos = ro + t*rd;
         vec3 nor = calcNormal( pos );
-
-		//col = vec3(0.6) + 0.4*sin( vec3(0.07,0.08,0.10)*(m-1.0) );
-		col = vec3(0.2) + 0.2*sin( vec3(0.07,0.01,0.06)*(m-1.0) );
+		
+		col = textureMap(m, pos);
+		
 		//col = vec3(.1, .1, .4);
 		vec3 col2 = vec3(.4, .4, .02);
 		
         float ao = calcAO( pos, nor );
 
-		vec3 lig = normalize( vec3(-1.0, 1.0, 1.0) );
+		vec2 rot_lig = (1. + fpar[1][0]) * vec2(sin(M_PI*fpar[1][1] / 50.), cos(M_PI*fpar[1][1] / 50.)) / 5.;
+		vec3 lig_src = vec3( 
+			vec3(-rot_lig.x, 1.+fpar[1][2]/25., rot_lig.y) 
+		);
+		
+		vec3 lig  = normalize(lig_src);
+		
 		float amb = clamp( 0.5+0.5*nor.y, 0.0, 1.0 );
         float dif = clamp( dot( nor, lig ), 0.0, 1.0 );
 		//float dif = clamp( .5 + .5*dot( nor, lig ), 0.0, 1.0 );
         float bac = clamp( dot( nor, normalize(vec3(-lig.x,0.0,-lig.z))), 0.0, 1.0 )*clamp( 1.0-pos.y,0.0,1.0);
 
 		float sh = 1.0;
-		if( dif>0.02 ) { sh = softshadow( pos, lig, 0.02, 10.0, 7.0 ); dif *= sh; }
+		if( dif>0.02 ) { sh = softshadow( pos, lig_src, 0.02, 10.0, .25+fpar[1].w/12.5 ); dif *= sh; }
 
 		vec3 brdf = vec3(0.0);
 		
 		brdf += 0.20*amb*vec3(0.20,0.00,0.00)*ao;	// ambient
-		brdf += 0.20*bac*vec3(0.15,0.0,0.15)*ao;		// back light
+		brdf += 0.20*bac*vec3(0.15,0.0,0.15)*ao;	// back light
 		brdf += 1.20*dif*vec3(1.00,0.90,0.60);		// diffusal
 		
 		float pp = clamp( dot( reflect(rd,nor), lig ), 0.0, 1.0 );
@@ -233,8 +301,8 @@ vec3 render( in vec3 ro, in vec3 rd )
 		col = col*brdf + vec3(1.0)*col*spe + mix(col,col2, 0.4*fre);
 	}
 
-	col *= exp( -0.01*t*t );
-	col *= col;
+	col *= exp( -0.01*t*t*(fpar[0].w/100.) );
+	/*col *= col;*/
 	
 	return vec3( clamp(col,0.0,1.0) );
 }
@@ -248,8 +316,9 @@ void main( void )
 		 
 	float tm = 15.0 + time;
 
-	// camera	
-	vec3 ro = vec3( 0.0, 0.5 , 1.5);	
+	vec2 rot = (1. + fpar[0][0]) * vec2(sin(M_PI*fpar[0][1] / 50.), cos(M_PI*fpar[0][1] / 50.)) / 12.5;
+	// camera
+	vec3 ro = vec3( rot.x, 1.+fpar[0][2] / 50., rot.y);	
 	vec3 ta = vec3( 0.0, 0.0, 0.0 );
 	
 	// camera tx
@@ -258,11 +327,10 @@ void main( void )
 	vec3 cu = normalize( cross(cw,cp) );
 	vec3 cv = normalize( cross(cu,cw) );
 	vec3 rd = normalize( p.x*cu + p.y*cv + 2.5*cw );
-
 	
     vec3 col = render( ro, rd );
 
-	col = sqrt( col );
+	/*col = sqrt( col );*/
 
     gl_FragColor=vec4( col, 1.0 );
 }
@@ -289,53 +357,12 @@ function checkAndTrim(_value, _min, _max){
 }
 	
 var App = {
-	brightness: 0,
-	setBrightness:function(brig){
-		vobj = checkAndTrim(brig, -100, 100);
-		if(vobj.error == 1) return;	// trimmelest kihagyjuk
-		this.brightness = vobj.value;		
-	},
-	
-	contrast: 0,
-	setContrast:function(contr){
-		vobj = checkAndTrim(contr, -100, 100);
-		if(vobj.error == 1) return;	// trimmelest kihagyjuk
-		this.contrast = vobj.value;		
-	},
+	renderer : 0,
+	stuff : 0,
 
-	gamma: 100,
-	setGamma:function(gamma){
-		vobj = checkAndTrim(gamma, 0, 500);
-		if(vobj.error == 1) return;	// trimmelest kihagyjuk
-		this.gamma = vobj.value;		
-	},
-	
-	treshold : {
-		min: 0,
-		max: 100
-	},
-	setTresholdMin:function(min){
-		if(min>this.treshold.max) return;
-		vobj = checkAndTrim(min, 0, 100);
-		if(vobj.error == 1) return;	// trimmelest kihagyjuk
-		this.treshold.min = vobj.value;
-	},
-	setTresholdMax:function(max){
-		if(max<this.treshold.min) return;
-		vobj = checkAndTrim(max, 0, 100);
-		if(vobj.error == 1) return;	// trimmelest kihagyjuk
-		this.treshold.max = vobj.value;
-	},
-	setTresholdRange:function(min,max){
-		this.setTresholdMin(min);
-		this.setTresholdMax(max);
-	},
-	
-	texture_uri : [
-		"lenna.png",
-		"lenna_bw.png",
-	],
-	
+	//matrix: [],
+	matrixNames : [],
+
 	//////////////////////////////////////////////////////
 	initRenderer : function(renderer){ 
 		var shader = new Shader("shader-vs", "shader-fs");
@@ -351,20 +378,13 @@ var App = {
             -1.0, -1.0,  0.0
 		]), 3, 4);
 		
-		var textures = new Array();
-		
-		for (i=0; i<this.texture_uri.length; i++){
-			textures[i] = new Texture("images/textures/"+this.texture_uri[i]);
-		}
-		
 		return {
 			renderer : renderer,
 			shader : shader,
 			input : inputs,
 			screenQuad : screenQuad,
-			textures : textures,
-			
-			id : 0
+			matrix : [],
+			//app : App
 		};
 	},
 	
@@ -380,7 +400,11 @@ var App = {
 		dd.screenQuad.bindToAttrib(dd.shader, "aVertexPosition");
 		
 		dd.shader.setUniform1f("time", time/1000.);
-		//dd.shader.setUniform2f("resolution", 640, 480);
+		
+		//console.log(dd.app);
+		
+		dd.shader.setUniform4m("fpar", dd.matrix);
+		
 		canvas = dd.renderer.canvas;
 		dd.shader.setUniform2f("resolution", canvas.width, canvas.height);
 		
@@ -388,14 +412,11 @@ var App = {
 		
 		dd.shader.disableAttribArray("aVertexPosition");
 		dd.shader.unbind();
+		
 	},
 	
 	//////////////////////////////////////////////////////
 	main : function(){
-		// ui-k
-		this.createUI();
-		// renderer		felulet 
-		
 		// tagek hozzaadasa
 		// ez elegge ronda megoldas, hogy jquery es vanilla js keverve van jelen
 		var mainDiv, mainCanvas;
@@ -411,15 +432,16 @@ var App = {
 		App.resizeCanvas(mainDiv, mainCanvas, renderer);
 		
 		// renderer dolgainak inicializalasa
-		var stuff = App.initRenderer(renderer);
+		this.stuff = App.initRenderer(renderer);
 		
-		// final touch
-		this.updateUI();
-		this.fillTextureList();
+			//console.log(this.stuff);
+		
+		// ui-k
+		this.createUI();
 		
 		// callback beallit
-		renderer.mainloopCallback = function(time){App.mainloop(time, stuff);};
-		
+		renderer.mainloopCallback = function(time){App.mainloop(time, App.stuff);};
+		renderer.showFPSCallback = function(FPS){$("#ShowFPS").html("FPS: " + FPS);};
 		// mainloop indit
 		renderer.mainLoop();
 	},
@@ -433,84 +455,25 @@ var App = {
 	
 	//////////////////////////////////////////////////////////////
 	
-	fillTextureList:function(){
-		$("fillTextureList")
-	}
-	
 	createUI:function(){
-		// user interface elemek letrehozasa
-		// 1) sliderek		
-		// fenyero
-		$( "#slider_brightness" ).slider({
-			min: -100,
-			max: 100,
-			value: 0,
-			slide:function(evt, ui){ App.setBrightness(ui.value); App.updateBrightnessUI();}
+		var i = 0;
+		$( "#uniformArray > span" ).each(function() {
+			var ss = "uniformArray"+i;
+			$(this).attr("id",ss);
+			App.stuff.matrix[i] = 50;
+			App.matrixNames[ss] = i;
+			i++;
+			$(this).empty().slider({
+				value: 50,
+				range: "min",
+				orientation: "vertical",
+				slide: function(evt, ui){
+					App.stuff.matrix[App.matrixNames[ui.handle.parentElement.id]] = ui.value;
+					//console.log(App.stuff.matrix);
+				}
+			});
 		});
-		
-		// kontraszt
-		$( "#slider_contrast" ).slider({
-			min: -100,
-			max: 100,
-			value: 0,
-			slide:function(evt, ui){ App.setContrast(ui.value); App.updateContrastUI();}
-		});
-		
-		// gamma
-		$( "#slider_gamma" ).slider({
-			min: 0,
-			max: 500,
-			value: 100,
-			slide:function(evt, ui){ App.setGamma(ui.value); App.updateGammaUI();}
-		});
-		
-		// hatarertek
-		$( "#slider_treshold" ).slider({
-			range: true,
-			min: 0,
-			max: 100,
-			values: [0, 100],
-			slide: function(event, ui){ App.setTresholdRange(ui.values[0], ui.values[1]); App.updateTresholdRangeUI();}
-		});
-		
-		// 2) inputok
-		// br, cr, g
-		$("#value_brightness").on(("change"),function(e){App.setBrightness(parseInt($("#value_brightness").val())); App.updateBrightnessUI();});
-		$("#value_contrast").on(("change"),function(e){App.setContrast(parseInt($("#value_contrast").val())); App.updateContrastUI();});
-		$("#value_gamma").on(("change"),function(e){App.setGamma(parseInt($("#value_gamma").val())); App.updateGammaUI();});
-		// hatarertek
-		$("#value_tresholdMin").on(("change"),function(e){ App.setTresholdMin(parseInt($("#value_tresholdMin").val()));App.updateTresholdRangeUI(); });
-		$("#value_tresholdMax").on(("change"),function(e){ App.setTresholdMax(parseInt($("#value_tresholdMax").val()));App.updateTresholdRangeUI(); });
 	},
-	
-	// ui update
-	// az oszes ui elemet frissiti
-	updateUI:function(){
-		App.updateBrightnessUI();
-		App.updateContrastUI();
-		App.updateGammaUI();
-		App.updateTresholdRangeUI();
-	},
-	
-	// ui update egyesevel
-	updateBrightnessUI:function(){
-		$("#slider_brightness").slider("value", App.brightness);
-		$("#value_brightness").val(App.brightness);
-	},
-	updateContrastUI:function(){
-		$("#slider_contrast").slider("value", App.contrast);
-		$("#value_contrast").val(App.contrast);
-	},
-	updateGammaUI:function(){
-		$("#slider_gamma").slider("value", App.gamma);
-		$("#value_gamma").val(App.gamma);
-	},
-	updateTresholdRangeUI:function(){
-		$("#slider_treshold").slider("values", [App.treshold.min, App.treshold.max]);
-		$("#value_tresholdMin").val(App.treshold.min);
-		$("#value_tresholdMax").val(App.treshold.max);
-	},
-
 }
 
 // ha betoltodott az oldal es a jquery
@@ -523,7 +486,7 @@ $(function() {
 	<!-- HEADER -->
 	<header>
 		<h1>Kép és hangfeldolgozás
-			<em>01: Fényerő, kontraszt, gamma WebGL-lel</em>
+			<em>Raymarcher teszt</em>
 		</h1>
 		<em>Sári Péter / SAPSAAP.PTE</em>
 	</header>
@@ -534,30 +497,28 @@ $(function() {
 		<div id="renderSurface"></div>
 		
 		<div id="UIComponents">
-			<!-- Fényerő -->
-			<p class="ui-state-default ui-corner-all ui-helper-clearfix" style="padding:4px;"> <span class="ui-icon ui-icon-lightbulb" style="float:left; margin:3px 5px 0 0;"></span> Fényerő: <INPUT id="value_brightness" size="5"/></p>
-			<div id="slider_brightness"></div>
-						
-			<!-- Kontraszt -->
-			<p class="ui-state-default ui-corner-all ui-helper-clearfix" style="padding:4px;"> <span class="ui-icon ui-icon-image" style="float:left; margin:3px 5px 0 0;"></span> Kontraszt: <INPUT id="value_contrast" size="5"/></p>
-			<div id="slider_contrast"></div>
-			
-			<!-- Gamma -->
-			<p class="ui-state-default ui-corner-all ui-helper-clearfix" style="padding:4px;"> <span class="ui-icon ui-icon-image" style="float:left; margin:3px 5px 0 0;"></span> Gamma: <INPUT id="value_gamma" size="5"/></p>
-			<div id="slider_gamma"></div>
-			
-			<!-- Határérték -->
-			<p class="ui-state-default ui-corner-all ui-helper-clearfix" style="padding:4px;"> <span class="ui-icon ui-icon-image" style="float:left; margin:3px 5px 0 0;"></span>Tartomány: <INPUT id="value_tresholdMin" size="5"/> - <INPUT id="value_tresholdMax"/ size="5"></p>
-			<div id="slider_treshold"></div>
-			
-			<!-- Textúra -->
-			<p class="ui-state-default ui-corner-all ui-helper-clearfix" style="padding:4px;"> <span class="ui-icon ui-icon-image" style="float:left; margin:3px 5px 0 0;"></span>Textúra: 
-				<select id="select_texture">
-					<option>Not loaded yet</option>
-				</select>
-			</p>
+			<div id="uniformArray">
+				<span></span>
+				<span></span>
+				<span></span>
+				<span></span>
+				<span></span>
+				<span></span>
+				<span></span>
+				<span></span>
+				<span></span>
+				<span></span>
+				<span></span>
+				<span></span>
+				<span></span>
+				<span></span>
+				<span></span>
+				<span></span>
+			</div>
 			
 		</div>
+		
+		<h3 id="ShowFPS"></h3>
 	</section>
 	
 	<!-- FOOTER -->

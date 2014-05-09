@@ -1,0 +1,173 @@
+/***************************
+** GLOBAL
+***************************/
+*{
+	font-family: "Tahoma",Arial, Sans-Serif;
+	/*font-family: "Trebuchet MS",Arial, Sans-Serif;*/
+	/*font-family: 'Open Sans', sans-serif;*/
+	font-size:10pt;
+	padding:0pt; 
+	margin:0pt;
+	color:#black;
+}
+
+body  {
+	background-color:#fff;
+	min-width:920px;
+}
+
+p{ 
+	padding: 0 0 16pt 16pt;
+}
+
+ul,ol{
+	padding: 0 0 6pt 6pt;
+	margin-left: 12pt;
+}
+
+img { border: 0px;}
+
+a{text-decoration: none;}
+a:hover{text-decoration:underline;}
+
+h1{ font-size:38pt; /*text-align:center;*/ padding:0pt; margin:0pt; font-weight:100;}
+h2{ font-size:26pt; /*text-align:center;*/ padding:0pt; margin:0pt; font-weight:100;}
+h3{ font-size:20pt; /*text-align:center;*/ padding:0pt; margin:0pt; font-weight:200;}
+h4{ font-size:18pt; padding:0pt; margin:0pt;}
+h5{ font-size:16pt; font-weight:bold; padding:0pt; margin:0pt;}
+h6{ font-size:12pt; font-weight:bold; padding:0pt; margin:0pt;}
+
+article, aside, figure, footer, header, hgroup, menu, nav, section 
+{ display: block; }
+
+em{
+	/*font-size:12pt; */
+	font-weight:normal;
+	font-style: italic;
+}
+
+
+/***************************
+** HEADER
+***************************/
+header{
+	background-color: #ccc;
+	display:block;
+	text-align:right;
+	padding-right: 1em;
+	padding-bottom: 1em;
+}
+
+header h1{
+	font-size:38pt;
+	color:#005;
+}
+
+header em{
+	display:block;
+	color:#472B1C;
+}
+
+header h1 em{
+	font-size:18pt;
+}
+/***************************
+** CONTENT
+***************************/
+section {
+	padding: 2em 0 0 1em;
+	display:block;
+}
+
+section  h1,h2,h3,h4,h5,h6{
+	color:#338;
+	clear:both;
+}
+
+section ol,ul,p {
+	margin-top:.7em;
+	padding-left:18pt;
+	line-height:175%;
+}
+
+section li.strong{
+	font-weight:bold;
+}
+
+section div {
+	/*display:block;*/
+	/*float: left;*/
+}
+
+section img{
+	vertical-align: left;
+	float:left;
+}
+
+/***************************
+** WGL UI es egyeb dolgok
+***************************/
+section.guest{
+	width:100%;
+	/*background-color:yellow;*/
+	/*clear:none;*/
+	padding:0;
+	margin:1em 0 0 0;
+}
+
+section.guest #renderSurface{
+	float:left;
+	width:640px;
+	height:360px;
+	background-color:red;
+}
+
+section.guest #UIComponents{
+	overflow:hidden;
+	/*min-width:300px;*/
+	padding: 5px;;
+}
+
+section.guest #UIComponents input{
+	border: 0;
+	color: #f6931f;
+	font-weight: bold;
+}
+
+section.guest #UIComponents 
+	#slider_brightness, 
+	#slider_contrast,
+	#slider_gamma,
+	#slider_treshold
+{
+	/*width:90%;*/
+	margin:16px;
+}
+
+section.guest #UIComponents #uniformArray span{
+	height:150px;
+	float: left;
+	margin:8px;
+}
+
+/***************************
+** CONTENT
+***************************/
+footer{
+	display: block;
+	position: fixed;
+	width: 100%;
+	bottom: 0px;
+	
+	font-size:10pt;
+	color:#444;
+	text-align:right;
+	background-color:#999;
+}
+
+footer a,a:hover{
+	color:#442;
+}
+footer a:visited{
+	color:#224;
+}

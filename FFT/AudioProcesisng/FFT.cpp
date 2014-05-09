@@ -8,12 +8,12 @@ FFT::FFT(int samplesize, int samplerate){
 	this->samplesize = samplesize;
 
 	// init W(n)
-	float arg, aw;
+	double arg, aw;
 	int i, n2;
 
 	n2 = samplesize / 2;
-	aw = 2.0 * M_PI / ((float)samplesize );
-	//aw = 2.0 * M_PI / ((float)samplerate);
+	aw = 2.0 * M_PI / ((double)samplesize );
+	//aw = 2.0 * M_PI / ((double)samplerate);
 
 	for ( i = 0; i < n2; i++ ){
 		arg = aw * ((double)i);
@@ -27,7 +27,7 @@ FFT::~FFT(void){
 	if(this->y) delete this->y;
 }
 
-void FFT::calculate(float *inbuf){
+void FFT::calculate(double *inbuf){
 	for(int i=0; i<this->samplesize; i++){
 		this->x[i].re = inbuf[i];
 		this->x[i].im = 0;
@@ -37,11 +37,11 @@ void FFT::calculate(float *inbuf){
 }
 
 void FFT::calculate(){
-	float sgn = -1.;
+	double sgn = -1.;
 	int j, m, mj, n = this->samplesize;
 	int tgle;
 
-	m = (int) (log ((float)n) / log ( 1.99 ) );
+	m = (int) (log ((double)n) / log ( 1.99 ) );
 	mj   = 1;
 
 	tgle = 1;
@@ -70,7 +70,7 @@ void FFT::calculate(){
   return;
 }
 
-void FFT::step(int n, int mj, complex *a, complex *b, complex *c, complex *d, float sgn){
+void FFT::step(int n, int mj, complex *a, complex *b, complex *c, complex *d, double sgn){
 	complex amb;
 	complex wjw;
 
@@ -101,12 +101,12 @@ FFT32::FFT32(int samplesize, int samplerate){
 	this->samplesize = samplesize;
 
 	// init W(n)
-	float arg, aw;
+	double arg, aw;
 	int i, n2;
 
 	n2 = samplesize / 2;
-	aw = 2.0 * M_PI / ((float)samplesize );
-	//aw = 2.0 * M_PI / ((float)samplerate);
+	aw = 2.0 * M_PI / ((double)samplesize );
+	//aw = 2.0 * M_PI / ((double)samplerate);
 
 	complex w;
 	for ( i = 0; i < n2; i++ ){
@@ -168,7 +168,7 @@ void FFT32::calculate(){
 	int j, m, mj, n = this->samplesize;
 	int tgle;
 
-	m = (int) (log ((float)n) / log ( 1.99 ) );
+	m = (int) (log ((double)n) / log ( 1.99 ) );
 	mj   = 1;
 
 	tgle = 1;

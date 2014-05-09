@@ -12,7 +12,7 @@
 // muveletek komplex szamokkal
 
 // komplex szamok reprezentalasahoz struktura
-typedef float complex_elem_t;
+typedef double complex_elem_t;
 
 typedef struct complex_t {
 	complex_elem_t  re, im;
@@ -20,14 +20,14 @@ typedef struct complex_t {
 
 // exponencialis alakbol felir egy komplex szamot
 // r*e^j*phi
-void complex_exp(float r, float phi, struct complex_t *out){
+void complex_exp(double r, double phi, struct complex_t *out){
 	out->re = r * cos(phi);
 	out->im = r * sin(phi);
 }
 
 // ket komplex szam szorzata
 void complex_mul(const complex *_a, const complex *_b, complex *out){
-	float a=_a->re, b=_a->im, c=_b->re, d=_b->im;
+	double a=_a->re, b=_a->im, c=_b->re, d=_b->im;
 
 	out->re = (a*c-b*d);
 	out->im = (a*d+b*c);
@@ -36,7 +36,7 @@ void complex_mul(const complex *_a, const complex *_b, complex *out){
 // athelyezzuk lokalis valtozokba arra az esetre, ha
 // a kimenet valamelyik bemenettel egyezne
 void complex_mul_by_c(const complex *_a, const complex_elem_t _b, complex *out){
-	float a=_a->re, b=_a->im;
+	double a=_a->re, b=_a->im;
 
 	out->re = _b*a;
 	out->im = _b*b;
@@ -44,14 +44,14 @@ void complex_mul_by_c(const complex *_a, const complex_elem_t _b, complex *out){
 
 // ket komplex szam  osszege
 void complex_add(const complex *_a, const complex *_b, complex *out){
-	float a=_a->re, b=_a->im, c=_b->re, d=_b->im;
+	double a=_a->re, b=_a->im, c=_b->re, d=_b->im;
 	out->re = a+c;
 	out->im = b+d;
 }
 
 // ket komplex szam  kulonbsege
 void complex_sub(const  complex *_a, const complex *_b, complex *out){
-	float a=_a->re, b=_a->im, c=_b->re, d=_b->im;
+	double a=_a->re, b=_a->im, c=_b->re, d=_b->im;
 	out->re = a-c;
 	out->im = b-d;
 }
@@ -61,7 +61,7 @@ void complex_sub(const  complex *_a, const complex *_b, complex *out){
 void DFT(const complex *in, const unsigned int len, complex *out){
 	int n=0, k=0;
 	struct complex_t dk, op;
-	float theta = 2*M_PI/(float)len, phi = 0.0;
+	double theta = 2*M_PI/(double)len, phi = 0.0;
 
 	if (!in) return;
 	if (!out) return;
@@ -70,12 +70,12 @@ void DFT(const complex *in, const unsigned int len, complex *out){
 		dk.re = dk.im = 0.0;
 		for(n=0; n<len; n++){
 			op.im = op.re = 0.0;
-			phi = -theta*(float)k*(float)n;		//printf("%3.2f; ", phi);
+			phi = -theta*(double)k*(double)n;		//printf("%3.2f; ", phi);
 			complex_exp(1., phi, &op);
 			complex_mul(&in[n], &op, &op);
 			complex_add(&op, &dk, &dk);
 		}
-		//complex_mul_by_c(&dk, 1/(float)(len+1), &dk);
+		//complex_mul_by_c(&dk, 1/(double)(len+1), &dk);
 		out[k] = dk;
 	}
 }
@@ -175,7 +175,7 @@ void fft_cfft2 ( int n, complex *x, complex *y, complex *w, complex_elem_t sgn )
 // --------------------------------------------------------------
 // main
 
-//float data[] = {0.f,1.f,2.f,3.f};
+//double data[] = {0.f,1.f,2.f,3.f};
 
 #define SIZEOF_ARRAY(x) (sizeof(x)/sizeof(*x))
 
@@ -185,7 +185,7 @@ int samples[] = {16, 32, 64, 128, 256};
 int main(){
 	int datasize, datasizeMax, i = 0, n = 0, t = 0;
 	complex *src_dts, *Wn, *res_dft, *res_fft;
-	float theta, omega, samplingTime, aw, af;
+	double theta, omega, samplingTime, aw, af;
 
 	//datasize = SIZEOF_ARRAY(data);
 	datasize = datasizeMax = 1<<8;	//2^4 
@@ -206,10 +206,10 @@ int main(){
 	fft_cffti(datasize, Wn);
 
 	for (i=0; i<SIZEOF_ARRAY(sampleTimes); i++){
-		theta=omega*(float)sampleTimes[i];
+		theta=omega*(double)sampleTimes[i];
 
 		for (n=0; n<datasize; n++){
-			src_dts[n].re = cos(theta*(float)n);
+			src_dts[n].re = cos(theta*(double)n);
 			src_dts[n].im = 0.f;
 		}
 	
@@ -218,7 +218,7 @@ int main(){
 		printf("N,f,omega,Re{D[N]},Im{D[N]},theta=%3.2f\n", theta);
 		for(n=0; n<datasize; n++){
 			//printf("D[%d] = %3.2f %c j*%3.2f \n", n, res_fft[n].re, (res_fft[n].im<0)?'-':'+', (res_fft[n].im<0)?-res_fft[n].im:res_fft[n].im);
-			af = .5* (float)(1+n) / (float)sampleTimes[i];
+			af = .5* (double)(1+n) / (double)sampleTimes[i];
 			aw = 2.*M_PI * af;
 			printf("%d,%3.2f,%3.2f,%3.2f,%3.2f\n", n, af, aw, res_fft[n].re, res_fft[n].im);
 		}
@@ -234,7 +234,7 @@ int main(){
 		datasize = samples[i];
 
 		for (n=0; n<datasize; n++){
-			src_dts[n].re = cos(theta*(float)n);
+			src_dts[n].re = cos(theta*(double)n);
 			src_dts[n].im = 0.f;
 		}
 	
@@ -244,7 +244,7 @@ int main(){
 		printf("N,omega,Re{D[N]},Im{D[N]},samples=%d\n", datasize);
 		for(n=0; n<datasize; n++){
 			//printf("D[%d] = %3.2f %c j*%3.2f \n", n, res_fft[n].re, (res_fft[n].im<0)?'-':'+', (res_fft[n].im<0)?-res_fft[n].im:res_fft[n].im);
-			af = .5* (float)(1+n) / (float)sampleTimes[i];
+			af = .5* (double)(1+n) / (double)sampleTimes[i];
 			aw = 2.*M_PI * af;
 			printf("%d,%3.2f,%3.2f,%3.2f,%3.2f\n", n, af, aw, res_fft[n].re, res_fft[n].im);
 		}

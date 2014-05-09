@@ -2,8 +2,11 @@
 #include <cstdlib>
 #include <cstring>
 
+#include <cmath>
+
+
 #include "AudioProcesisng/FFT.h"
-#include "AudioProcesisng/FreqFilter.h"
+#include "AudioProcesisng/Filter.h"
 #include "AudioProcesisng/wavread.h"
 
 int main(int argc, char **argv){
@@ -23,7 +26,7 @@ int main(int argc, char **argv){
 			inf = stdin;
 					isStdin = 1;
 		} else {
-			inf = fopen(argv[1], "r");
+			inf = fopen(argv[1], "rb");
 			//inf = fopen("g:\prog\kep_es_hang\trunk\FFT\test.wav", "r");
 					isStdin = 0;
 		}
@@ -33,7 +36,7 @@ int main(int argc, char **argv){
 			outf = stdout;
 			isStdout = 1;
 		} else {
-			outf = fopen(argv[2], "w");
+			outf = fopen(argv[2], "wb");
 			isStdout = 0;
 		}
 	}
@@ -47,9 +50,9 @@ int main(int argc, char **argv){
 	WavWrite *writer = NULL; 
 
 	FFT *fft = NULL;
-	FreqFilter::FilterChain *chain = NULL;
+	Filter::Chain *chain = NULL;
 
-	float *buf = NULL;
+	double *buf = NULL;
 
 	try {
 		// rw
@@ -60,21 +63,41 @@ int main(int argc, char **argv){
 		fft = new FFT(AUDIO_BUFFER_LEN, reader->getSamplingFreq());
 
 		// buf
-		int *buffer[2] = {NULL, NULL};
-		buffer[0] = new int [2*AUDIO_BUFFER_LEN];
-		if (reader->getChannels() == 2) buffer[1] = new int [2*AUDIO_BUFFER_LEN];
 
-		while (!reader->isEndOfStream()){
+		double *buffer[3] = {NULL, NULL, NULL};
+		buffer[0] = new double [2*AUDIO_BUFFER_LEN];
+		if (reader->getChannels() == 2) buffer[1] = new double [2*AUDIO_BUFFER_LEN];
+		buffer[2] = new double [2*AUDIO_BUFFER_LEN];
+
+		int tt = 0;
+		
+		//filt
+		chain = new Filter::Chain(reader->getSamplingFreq());
+		chain->setGenerator(new Filter::GeneratorWav(reader));
+		chain->addChain(new Filter::FilterRunningAvg(10));
+
+		while (!reader->isEndOfStream() /*|| k--*/){
+
 			reader->fillBuffer();
 			reader->swapBuffer();
-
-			reader->fillBufferComplex(buffer[0], WavRead::CH_LEFT);
+#if 0
+			reader->fillBufferComplex(buffer[0], WavRead::CH_LEFT, 1);
 			if (reader->getChannels() == 2) 
-				reader->fillBufferComplex(buffer[1], WavRead::CH_RIGHT);
+				reader->fillBufferComplex(buffer[1], WavRead::CH_RIGHT, 1);
 
-			writer->write(buffer[0], buffer[1], AUDIO_BUFFER_LEN);
-		}
+			writer->write(buffer[0], buffer[1], buffer[2], AUDIO_BUFFER_LEN, 1);
 
+#else 
+
+			chain->fillBufferFloat(buffer[0], AUDIO_BUFFER_LEN, WavRead::CH_LEFT);
+			if (reader->getChannels() == 2) 
+				chain->fillBufferFloat(buffer[1], AUDIO_BUFFER_LEN, WavRead::CH_RIGHT);
+
+			writer->write(buffer[0], buffer[1], buffer[2], AUDIO_BUFFER_LEN, 1);
+
+#endif 
+		};
+		 
 	} catch (int e){
 		printf("Cannot read file(s). Error code:%d", e);
 	}

@@ -14,10 +14,10 @@ void FreqFilter::Filter::init(int freqstep, int bufsze){
 
 	this->sampling = freqstep;
 
-	float freq = (float) bufsze / (float) freqstep, fq = 0.0f;
+	double freq = (double) bufsze / (double) freqstep, fq = 0.0f;
 
 	for(int i=0; i<bufsze; ++i){
-		fq = freq*(1+(float)i);
+		fq = freq*(1+(double)i);
 		this->freq_chr[i] = this->getFreq(fq);
 	}
 }
@@ -52,7 +52,7 @@ FreqFilter::FilterChain::~FilterChain(){
 
 ///////////////////////////////////////////////////////////
 
-FreqFilter::FilterLowPass::FilterLowPass(float _cutFreq, float _falloff, float _phaseShift) : Filter(){
+FreqFilter::FilterLowPass::FilterLowPass(double _cutFreq, double _falloff, double _phaseShift) : Filter(){
 	this->cutFreq = _cutFreq;
 	this->falloff = _falloff;
 	this->phaseShift = _phaseShift;
@@ -61,7 +61,7 @@ FreqFilter::FilterLowPass::FilterLowPass(float _cutFreq, float _falloff, float _
 FreqFilter::FilterLowPass::~FilterLowPass(){
 }
 
-complex FreqFilter::FilterLowPass::getFreq(float freq){
+complex FreqFilter::FilterLowPass::getFreq(double freq){
 	complex out = {0.,0.};
 	if (freq<this->cutFreq) return out;
 	out.re = 1.0;

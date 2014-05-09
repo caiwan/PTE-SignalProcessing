@@ -17,8 +17,8 @@ namespace WavPlayer{
 extern Uint32 getpixel(SDL_Surface *surface, int x, int y);
 extern void putpixel(SDL_Surface *surface, int x, int y, Uint32 pixel);
 
-inline float CubicInterpolate(float y0,float y1, float y2,float y3, float mu){
-   float a0,a1,a2,a3,mu2;
+inline double CubicInterpolate(double y0,double y1, double y2,double y3, double mu){
+   double a0,a1,a2,a3,mu2;
 
    mu2 = mu*mu;
    a0 = y3 - y2 - y0 + y1;

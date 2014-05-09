@@ -37,30 +37,30 @@ void drawBars(const complex *data, int samplerate, int samplelen, int x, int y, 
 
     int c = 0, vpos;
 	unsigned char *cc = (unsigned char*)&c;
-    float _samplerate = (float)samplerate;
-    float freq = 0.0, ppos = 0.0, t = 0.0;
-	float fft_freqstep = 1./(float) samplerate;
-    float freqstep = 3./(float)pos.w; // 10^4 nagysagrendig megyunk
+    double _samplerate = (double)samplerate;
+    double freq = 0.0, ppos = 0.0, t = 0.0;
+	double fft_freqstep = 1./(double) samplerate;
+    double freqstep = 3./(double)pos.w; // 10^4 nagysagrendig megyunk
 
-	float scale = 3./((float)(samplelen));
+	double scale = 3./((double)(samplelen));
 	
     SDL_LockSurface(screen);
 
     for(int px=0; px<pos.w; px++){
-        freq = 20*pow(10,(float)(px)*freqstep);
-		ppos = (float)(samplelen-4) * freq * fft_freqstep;
+        freq = 20*pow(10,(double)(px)*freqstep);
+		ppos = (double)(samplelen-4) * freq * fft_freqstep;
 
 		vpos = (int)floor(ppos);
-		t = ppos - (float)vpos;
+		t = ppos - (double)vpos;
 
 		if (vpos>=samplelen) return;
 
-        float f0 = data[vpos+0].re * scale;
-		float f1 = data[vpos+1].re * scale;
-		float f2 = data[vpos+2].re * scale;
-		float f3 = data[vpos+3].re * scale;
+        double f0 = data[vpos+0].re * scale;
+		double f1 = data[vpos+1].re * scale;
+		double f2 = data[vpos+2].re * scale;
+		double f3 = data[vpos+3].re * scale;
 
-        float h = fabs(CubicInterpolate(f0, f1, f2, f3, t))*(float)pos.h;
+        double h = fabs(CubicInterpolate(f0, f1, f2, f3, t))*(double)pos.h;
 
         for(int py=0; py<pos.h; py++){
             if(py<h){
@@ -107,24 +107,24 @@ int drawSpectogram(const complex *data, int samplerate, int samplelen, int x, in
 	
 	unsigned char *cc = &buffer[pos.h*time];
 
-    float _samplerate = (float)samplerate; // todo ...
-    float freq = 0.0, ppos = 0.0, t = 0.0;
-	float fft_freqstep = 1./(float) samplerate;
-    float freqstep = 3./(float)pos.h; // 10^4 nagysagrendig megyunk
+    double _samplerate = (double)samplerate; // todo ...
+    double freq = 0.0, ppos = 0.0, t = 0.0;
+	double fft_freqstep = 1./(double) samplerate;
+    double freqstep = 3./(double)pos.h; // 10^4 nagysagrendig megyunk
 
-	float scale = 15./((float)(samplelen));
+	double scale = 15./((double)(samplelen));
 
     for(int py=0; py<pos.h; py++){
-        freq = 20.*pow(10,(float)(py)*freqstep);
-		ppos = (float)(samplelen-4) * freq * fft_freqstep;
+        freq = 20.*pow(10,(double)(py)*freqstep);
+		ppos = (double)(samplelen-4) * freq * fft_freqstep;
 
 		vpos = (int)floor(ppos);
-		t = ppos - (float)vpos;
+		t = ppos - (double)vpos;
 
 		if (vpos>=samplelen) return (time+1)%pos.w;
 
-        float f0 = data[vpos+0].re * scale, f1 = data[vpos+1].re * scale, f2 = data[vpos+2].re * scale, f3 = data[vpos+3].re * scale;
-		float f = fabs(CubicInterpolate(f0, f1, f2, f3, t));
+        double f0 = data[vpos+0].re * scale, f1 = data[vpos+1].re * scale, f2 = data[vpos+2].re * scale, f3 = data[vpos+3].re * scale;
+		double f = fabs(CubicInterpolate(f0, f1, f2, f3, t));
 		f = (f>1.)?1.:f;
 		f = (f<0.)?0.:f;
 		cc[py] = (unsigned char)(f * 255);
@@ -210,9 +210,9 @@ int main(int argc, char* argv[]){
 
 		int offset = 0, getnext = 1;
 
-		float *fft_buffer[2];
-		fft_buffer[0]= new float[2*AUDIO_BUFFER_LEN];
-		if (reader->getChannels() == 2) fft_buffer[1] = new float[2*AUDIO_BUFFER_LEN]; else fft_buffer[1] = NULL;
+		double *fft_buffer[2];
+		fft_buffer[0]= new double[2*AUDIO_BUFFER_LEN];
+		if (reader->getChannels() == 2) fft_buffer[1] = new double[2*AUDIO_BUFFER_LEN]; else fft_buffer[1] = NULL;
 
         SDL_Event event;
 

@@ -1,17 +1,22 @@
 #pragma once
 
-#include<list>
+#include<vector>
 #include "wavread.h"
 
 namespace Filter{
+	
+	class Filter;
+	class Chain;
+
 	class Generator{
 		public:
 			Generator();
 			~Generator();
-
-			virtual void fillBufferFloat(float *data, int len) = 0;
-			virtual void fillBufferInt(int *data, int len) = 0;
-			virtual void fillBufferU16(unsigned short *data, int len) = 0;
+		
+		public:
+			virtual void fillBufferFloat(double *data, int len, WavRead::channel_t channel) = 0;
+			//virtual void fillBufferInt(int *data, int len, WavRead::channel_t channel) = 0;
+			//virtual void fillBufferU16(unsigned short *data, int len, WavRead::channel_t channel) = 0;
 			//void fillBufferU8();
 	};
 
@@ -20,37 +25,37 @@ namespace Filter{
 			int _samplerate;
 			void init(int samplerate){this->_samplerate = samplerate;}
 
-			virtual void asdasd (int* inbuf, int* outbuf, int pos) = 0;
-
 		public:
-			Filter();
-			virtual ~Filter();
+			Filter(){}
+			virtual ~Filter(){}
+
+			virtual void render(double* inbuf, double* outbuf, int pos) = 0;
 	};
 
 	class Chain : public Generator{
 		private:
 			int samplerate;
-			float sampletime;
+			double sampletime;
 
 			Generator* generator;
-			std::list<Filter*> filterChain;
+			std::vector<Filter*> filterChain;
 			
 			int bufsize;
-			float *buffer[2];
-			float *inbuf, *outbuf;
+			double *buffer[2];
+			double *inbuf, *outbuf;
 
 			void allocate(int l);
-			void render(int l);
+			void render(int l, WavRead::channel_t channel);
 
-			inline void swapBuffers(){float*tmp = this->outbuf; this->inbuf = this->outbuf; this->outbuf = tmp;}
+			inline void swapBuffers(){double*tmp = this->outbuf; this->inbuf = this->outbuf; this->outbuf = tmp;}
 
 	public:
 		Chain(int samplerate);
 		virtual ~Chain();
 
-		virtual void fillBufferFloat(float *data, int len);
-		virtual void fillBufferInt(int *data, int len);
-		virtual void fillBufferU16(unsigned short *data, int len);
+		virtual void fillBufferFloat(double *data, int len = AUDIO_BUFFER_LEN, WavRead::channel_t channel = WavRead::CH_MONO);
+		virtual void fillBufferInt(int *data, int len = AUDIO_BUFFER_LEN, WavRead::channel_t channel = WavRead::CH_MONO);
+		virtual void fillBufferU16(unsigned short *data, int len = AUDIO_BUFFER_LEN, WavRead::channel_t channel = WavRead::CH_MONO);
 
 		inline void setGenerator(Generator *generator){this->generator = generator;}
 		inline void addChain(Filter* filter){this->filterChain.push_back(filter);}
@@ -60,17 +65,34 @@ namespace Filter{
 	// Generator
 	/////////////////////////////
 	class GeneratorWav : public Generator{
+		private:
+			WavRead *reader;
+			int bpos;
+			double* buffer[2];
+
+		public:
+			GeneratorWav(WavRead *reader); // : reader(reader){if (!reader) throw -5;}
+			~GeneratorWav();
+
+		protected:
+			virtual void fillBufferFloat(double *data, int len, WavRead::channel_t channel);
+			//virtual void fillBufferInt(int *data, int len, WavRead::channel_t channel);
+			//virtual void fillBufferU16(unsigned short *data, int len, WavRead::channel_t channel);
+	};
+
+
+	/////////////////////////////
+	// Filterek
+	/////////////////////////////
+
+	class FilterRunningAvg : public Filter{
 	private:
-		WavRead *reader;
-		int bpos;
-		float* buffer;
-
+		int M;
 	public:
-		GeneratorWav(WavRead *reader); // : reader(reader){if (!reader) throw -5;}
-		~GeneratorWav();
+		FilterRunningAvg(int m) : Filter() {
+			this->M = m;
+		}
 
-		virtual void fillBufferFloat(float *data, int len);
-		virtual void fillBufferInt(int *data, int len);
-		virtual void fillBufferU16(unsigned short *data, int len);
-	}
+		virtual void render(double* inbuf, double* outbuf, int pos);
+	};
 };
