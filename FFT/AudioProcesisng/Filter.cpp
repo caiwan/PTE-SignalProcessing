@@ -108,7 +108,7 @@ void Filter::FilterRunningAvg:: render(double* inbuf, double* outbuf, int pos){
 	double in = inbuf[pos];
 	double res = in;
 	if (pos)res = inbuf[pos] + inbuf[pos-1];
-	outbuf[pos] = res *.5;
+	outbuf[pos] = res;
 }
 
 

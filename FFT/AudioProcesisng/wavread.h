@@ -150,7 +150,7 @@ class WavRead
 #define K this->header.fmt_chunk.bitsPerSample
 		/// felirja SDL_audio modulnak megfelo enumeratorral a minta tiousat
 		/* @return AUDIO_S8 (signed 8bit) vagy AUDIO_S16 (signed 16 bit)*/
-		inline int getSDLAudioFormat(){if (K == 8) return AUDIO_S8; else if (K == 16) return AUDIO_S16; return 0;}
+		inline int getSDLAudioFormat(){if (K == 8) return AUDIO_U8; else if (K == 16) return AUDIO_S16; return 0;}
 #undef K
 #endif /*kihuz*/
 

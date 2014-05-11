@@ -156,43 +156,43 @@ void WavRead::fillBufferComplex(double* buffer, channel_t channel, int len, int 
 	if (!this->frontBuffer) while(!this->frontBuffer); // ez is rossz megoldas
 	if (this->isLocked) while(this->isLocked); 
 
-	double c = .5/(double)(1<<this->header.fmt_chunk.bitsPerSample);
-
-	if (is32k) c = 1.;
-
 	int ch = this->header.fmt_chunk.numOfChan;
 	int cs = (channel==CH_RIGHT && ch==2)?1:0;
 	
 	int bs = this->bufsize / this->header.fmt_chunk.blockAlign;
 	if (len && len<=bs) bs = len;
 
-	// ezek itt nem jok!
+	// 8 biten UNSIGNED !
 	if (this->header.fmt_chunk.bitsPerSample == 8){
 		unsigned char *fbuf = (unsigned char*) this->frontBuffer, *bbuf = (unsigned char*)this->backBuffer;
 		if (channel == CH_MONO && ch == 2){
-			c *= .5;
 			for(int i=0; i<bs; ++i){
-				buffer[i   ] = .5*c*((double)fbuf[ch*i+cs] + (double)fbuf[ch*i+cs]);
-				if (!len) buffer[bs+i] = .5*c*((double)bbuf[ch*i+cs] + (double)bbuf[ch*i+cs]);
+				buffer[i   ] = ((double)fbuf[ch*i+cs] + (double)fbuf[ch*i+cs] - 255.) / 255. ; 
+				if (!len) 
+					buffer[bs+i] = ((double)bbuf[ch*i+cs] + (double)bbuf[ch*i+cs] - 255.) / 255.;
 			}
 		}else{
 			for(int i=0; i<bs; ++i){
-				buffer[i   ] = c * (double)fbuf[ch*i+cs];
-				if (!len) buffer[bs+i] = c * (double)bbuf[ch*i+cs];
+				buffer[i   ] = ((double)fbuf[ch*i+cs]-128.) / 127.;
+				if (!len) 
+					buffer[bs+i] = ((double)bbuf[ch*i+cs]-128.) / 127. ;
 			}
 		}
+
+	// 16 biten SIGNED!
 	} else if (this->header.fmt_chunk.bitsPerSample == 16){
-		unsigned short *fbuf = (unsigned short*) this->frontBuffer, *bbuf = (unsigned short*)this->backBuffer;
+		short *fbuf = (short*) this->frontBuffer, *bbuf = (short*)this->backBuffer;
 		if (channel == CH_MONO && ch == 2){
-			c *= .5;
 			for(int i=0; i<bs; ++i){
-				buffer[i   ] = ((double)fbuf[ch*i+cs] + (double)fbuf[ch*i+cs]) *.5*c;
-				if (!len) buffer[bs+i] = ((double)bbuf[ch*i+cs] + (double)bbuf[ch*i+cs]) *.5*c;
+				buffer[i   ] = ((double)fbuf[ch*i+cs] + (double)fbuf[ch*i+cs]) / 65535.;
+				if (!len) 
+					buffer[bs+i] = ((double)bbuf[ch*i+cs] + (double)bbuf[ch*i+cs]) / 65535.;
 			}
 		}else{
 			for(int i=0; i<bs; ++i){
-				buffer[i   ] = (double)fbuf[ch*i+cs] * c;
-				if (!len) buffer[bs+i] = (double)bbuf[ch*i+cs] * c;
+				buffer[i   ] = (double)fbuf[ch*i+cs]	/ 32767.;
+				if (!len) 
+					buffer[bs+i] = (double)bbuf[ch*i+cs] / 32767.;
 			}
 		}
 	}
@@ -328,35 +328,27 @@ void WavWrite::write(double *left, double *right, void* workbuffer, int length, 
 	if (!left) throw 52;
 	if (!right && this->header.fmt_chunk.numOfChan == 2) throw 53;
 
-#if 0
-	FILE *fp = fopen("teszt", "wb");
-	if (!fp) return;
-#else 
 	FILE *fp = this->outfile;
-#endif
 
-	float c = 32768., k = 1.;
-	if (is32k) c = 1., k = 32768.;
-
+	// 16 biten SIGNED !
 	if (this->header.fmt_chunk.bitsPerSample == 16){
-		//unsigned short *buf = reinterpret_cast<unsigned short *>(workbuffer);	
 		short *buf = reinterpret_cast<short *>(workbuffer);	
-			if (this->header.fmt_chunk.numOfChan == 2){
+		if (this->header.fmt_chunk.numOfChan == 2){
+			for (int i=0; i<length; i++){
+				int
+					v1 = (int)(left[i ] * 32767.),
+					v2 = (int)(right[i] * 32767.);
+					
+				buf[2*i+0] = v1;	// todo: clamp !!! 
+				buf[2*i+1] = v2;
+			}
+		} else if (this->header.fmt_chunk.numOfChan == 1){
 				for (int i=0; i<length; i++){
-					int
-						v1 = (int)(fclamp(left[i ]) * c),
-						v2 = (int)(fclamp(right[i]) * c);
-
-					buf[2*i+0] = v1;
-					buf[2*i+1] = v2;
-				}
-			} else if (this->header.fmt_chunk.numOfChan == 1){
-				for (int i=0; i<length; i++){
-					short v1 = (short)(fclamp(left[i]) * c);
-					buf[i] = v1;
-				}
+				short v1 = (short)(fclamp(left[i]) * 32767.);
+				buf[i] = v1;
 			}
 		}
+	}
 	// TODO: 8 bitre is
 	/*
 	} else if (this->header.fmt_chunk.bitsPerSample == 8){
@@ -380,7 +372,7 @@ void WavWrite::write(double *left, double *right, void* workbuffer, int length, 
 	fwrite(workbuffer, this->header.fmt_chunk.blockAlign, length, fp);
 	fflush(fp);
 }
-
+/*
 void WavWrite::writeComplex_old(double *data, int length){
 	double v0 = 0.0, v1 = 0.0, vk = (double)((1<<this->header.fmt_chunk.bitsPerSample)-1);
 	int vi1 = 0, vi0 = 0; 
@@ -410,3 +402,4 @@ void WavWrite::writeComplex_old(double *data, int length){
 		}
 	}
 }
+*/
