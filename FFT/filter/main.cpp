@@ -24,11 +24,10 @@ int main(int argc, char **argv){
 		// infile ha "-" akkor stdintrol olvas
 		if (strcmp("-", argv[1]) == 0){
 			inf = stdin;
-					isStdin = 1;
+			isStdin = 1;
 		} else {
 			inf = fopen(argv[1], "rb");
-			//inf = fopen("g:\prog\kep_es_hang\trunk\FFT\test.wav", "r");
-					isStdin = 0;
+			isStdin = 0;
 		}
 		
 		// outfile ha "-" akkor stdoutra ir
@@ -52,7 +51,7 @@ int main(int argc, char **argv){
 	FFT *fft = NULL;
 	Filter::Chain *chain = NULL;
 
-	double *buf = NULL;
+	float *buf = NULL;
 
 	try {
 		// rw
@@ -60,21 +59,20 @@ int main(int argc, char **argv){
 
 		// ww
 		writer = new WavWrite(outf, reader->getSamplingFreq(), reader->getChannels(), reader->getLengthInSample(), reader->getIs8Bit());
-		fft = new FFT(AUDIO_BUFFER_LEN, reader->getSamplingFreq());
 
 		// buf
 
-		double *buffer[3] = {NULL, NULL, NULL};
-		buffer[0] = new double [2*AUDIO_BUFFER_LEN];
-		if (reader->getChannels() == 2) buffer[1] = new double [2*AUDIO_BUFFER_LEN];
-		buffer[2] = new double [2*AUDIO_BUFFER_LEN];
+		float *buffer[3] = {NULL, NULL, NULL};
+		buffer[0] = new float [2*AUDIO_BUFFER_LEN];
+		if (reader->getChannels() == 2) buffer[1] = new float [2*AUDIO_BUFFER_LEN];
+		buffer[2] = new float [2*AUDIO_BUFFER_LEN];
 
 		int tt = 0;
 		
 		//filt
 		chain = new Filter::Chain(reader->getSamplingFreq());
 		chain->setGenerator(new Filter::GeneratorWav(reader));
-		chain->addChain(new Filter::FilterRunningAvg(10));
+		chain->addChain(new Filter::Filter_FFI_MA(10));
 
 		while (!reader->isEndOfStream() /*|| k--*/){
 
@@ -92,6 +90,8 @@ int main(int argc, char **argv){
 			chain->fillBufferFloat(buffer[0], AUDIO_BUFFER_LEN, WavRead::CH_LEFT);
 			if (reader->getChannels() == 2) 
 				chain->fillBufferFloat(buffer[1], AUDIO_BUFFER_LEN, WavRead::CH_RIGHT);
+
+			// todo: teljesen kulon kell valasztani a ket csatronat !!!
 
 			writer->write(buffer[0], buffer[1], buffer[2], AUDIO_BUFFER_LEN, 1);
 

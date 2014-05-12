@@ -21,7 +21,7 @@ namespace FreqFilter{
 
 		protected:
 			// quick-and-dirty ganyolas a CPU-s textura generatorom alapjan
-			virtual complex getFreq(double freq) = 0;
+			virtual complex getFreq(float freq) = 0;
 			void init(int sampling, int bufsze);
 			inline const complex * getFqChar() {return this->freq_chr;}; // freq. karakterisztika
 
@@ -51,14 +51,14 @@ namespace FreqFilter{
 	//------------
 	class FilterLowPass : public Filter{
 		protected:
-			virtual complex getFreq(double freq);
+			virtual complex getFreq(float freq);
 			//void init(int freqstep, int bufsze);
 
 		private:
-			double cutFreq, falloff, phaseShift;
+			float cutFreq, falloff, phaseShift;
 
 		public:
-			FilterLowPass (double cutFreq, double falloff, double phaseShift);
+			FilterLowPass (float cutFreq, float falloff, float phaseShift);
 			virtual ~FilterLowPass ();
 	};
 

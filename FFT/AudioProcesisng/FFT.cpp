@@ -8,15 +8,15 @@ FFT::FFT(int samplesize, int samplerate){
 	this->samplesize = samplesize;
 
 	// init W(n)
-	double arg, aw;
+	float arg, aw;
 	int i, n2;
 
 	n2 = samplesize / 2;
-	aw = 2.0 * M_PI / ((double)samplesize );
-	//aw = 2.0 * M_PI / ((double)samplerate);
+	aw = 2.0 * M_PI / ((float)samplesize );
+	//aw = 2.0 * M_PI / ((float)samplerate);
 
 	for ( i = 0; i < n2; i++ ){
-		arg = aw * ((double)i);
+		arg = aw * ((float)i);
 		complex_exp(1., arg, &this->Wn[i]);
 	}
 }
@@ -27,7 +27,7 @@ FFT::~FFT(void){
 	if(this->y) delete this->y;
 }
 
-void FFT::calculate(double *inbuf){
+void FFT::calculate(float *inbuf){
 	for(int i=0; i<this->samplesize; i++){
 		this->x[i].re = inbuf[i];
 		this->x[i].im = 0;
@@ -37,11 +37,11 @@ void FFT::calculate(double *inbuf){
 }
 
 void FFT::calculate(){
-	double sgn = -1.;
+	float sgn = -1.;
 	int j, m, mj, n = this->samplesize;
 	int tgle;
 
-	m = (int) (log ((double)n) / log ( 1.99 ) );
+	m = (int) (log ((float)n) / log ( 1.99 ) );
 	mj   = 1;
 
 	tgle = 1;
@@ -70,7 +70,7 @@ void FFT::calculate(){
   return;
 }
 
-void FFT::step(int n, int mj, complex *a, complex *b, complex *c, complex *d, double sgn){
+void FFT::step(int n, int mj, complex *a, complex *b, complex *c, complex *d, float sgn){
 	complex amb;
 	complex wjw;
 
@@ -101,16 +101,16 @@ FFT32::FFT32(int samplesize, int samplerate){
 	this->samplesize = samplesize;
 
 	// init W(n)
-	double arg, aw;
+	float arg, aw;
 	int i, n2;
 
 	n2 = samplesize / 2;
-	aw = 2.0 * M_PI / ((double)samplesize );
-	//aw = 2.0 * M_PI / ((double)samplerate);
+	aw = 2.0 * M_PI / ((float)samplesize );
+	//aw = 2.0 * M_PI / ((float)samplerate);
 
 	complex w;
 	for ( i = 0; i < n2; i++ ){
-		arg = aw * ((double)i);
+		arg = aw * ((float)i);
 		complex_exp(1., arg, &w);
 		this->Wn[i].re = floor(64.*1024.*w.re);
 		this->Wn[i].im = floor(64.*1024.*w.im);
@@ -168,7 +168,7 @@ void FFT32::calculate(){
 	int j, m, mj, n = this->samplesize;
 	int tgle;
 
-	m = (int) (log ((double)n) / log ( 1.99 ) );
+	m = (int) (log ((float)n) / log ( 1.99 ) );
 	mj   = 1;
 
 	tgle = 1;

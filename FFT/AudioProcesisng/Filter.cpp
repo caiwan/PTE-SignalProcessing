@@ -1,9 +1,13 @@
 #include "Filter.h"
 
+////
+void BmxResonanceFilter(float *psamples, int numsamples, float f, float q, float *b0, float *b1);
+
+///// 
 // filter chain
 Filter::Chain::Chain(int samplerate) : Generator(), filterChain(){
 	this->samplerate = samplerate;
-	this->sampletime = 1./(double)samplerate;
+	this->sampletime = 1./(float)samplerate;
 
 	this->buffer[0] = NULL;
 	this->buffer[1] = NULL;
@@ -13,8 +17,8 @@ Filter::Chain::Chain(int samplerate) : Generator(), filterChain(){
 void Filter::Chain::allocate(int len){
 	if (!buffer[0] && len){
 		//this->buffer[0] = malloc(len*sizeof(this->buffer[0]));
-		this->buffer[0] = new double [len];
-		this->buffer[1] = new double [len];
+		this->buffer[0] = new float [len];
+		this->buffer[1] = new float [len];
 		//this->buffer[1] = malloc(len*sizeof(this->buffer[0]));
 		this->bufsize = len;
 	} else if (this->bufsize != len || len == 0){
@@ -32,20 +36,19 @@ void Filter::Chain::allocate(int len){
 	this->outbuf = buffer[0];
 }
 
-void Filter::Chain::render(int len, WavRead::channel_t channel){
+void Filter::Chain::render(int len, int offset, WavRead::channel_t channel ){
 	if (!this->generator) throw 21;
 	//if (this->filterChain.empty()) throw 22;
 
 	this->allocate(len);
-	this->generator->fillBufferFloat(this->inbuf, len, channel);
+	this->generator->fillBufferFloat(this->inbuf, len, offset, channel);
 
 	Filter *actfilter = NULL;
 
 	for (int i=0; i<this->filterChain.size(); i++){
 		actfilter = this->filterChain[i];
 		
-		if (actfilter) for(int p=0; p<this->bufsize; p++)
-			actfilter->render(this->inbuf, this->outbuf, p);
+		if (actfilter) actfilter->render(this->inbuf, this->outbuf, this->bufsize);
 
 		this->swapBuffers();
 	}
@@ -53,18 +56,18 @@ void Filter::Chain::render(int len, WavRead::channel_t channel){
 	this->swapBuffers();
 }
 
-void Filter::Chain::fillBufferU16(unsigned short *data, int len, WavRead::channel_t channel){
-	this->render(len, channel);
+void Filter::Chain::fillBufferU16(unsigned short *data, int len, int offset, WavRead::channel_t channel){
+	this->render(len, offset, channel);
 	throw 28;
 }
 
-void Filter::Chain::fillBufferInt(int *data, int len, WavRead::channel_t channel){
-	this->render(len, channel);
+void Filter::Chain::fillBufferInt(int *data, int len, int offset, WavRead::channel_t channel){
+	this->render(len, offset, channel);
 	throw 28;
 }
 
-void Filter::Chain::fillBufferFloat(double *data, int len, WavRead::channel_t channel){
-	this->render(len, channel);
+void Filter::Chain::fillBufferFloat(float *data, int len, int offset, WavRead::channel_t channel){
+	this->render(len, offset, channel);
 	memcpy(data, this->outbuf, len*sizeof(*data));
 }
 
@@ -84,38 +87,76 @@ Filter::GeneratorWav::GeneratorWav(WavRead *_reader) : Generator() {
 	this->reader = _reader;
 	this->reader->fillBuffer();
 
-	this->buffer[0] = new double[2*AUDIO_BUFFER_LEN];
-	this->buffer[1] = new double[2*AUDIO_BUFFER_LEN];
+	this->buffer[0] = new float[2*AUDIO_BUFFER_LEN];
+	this->buffer[1] = new float[2*AUDIO_BUFFER_LEN];
 	this->bpos = 0;
 	//this->reader->fillBufferComplex(this->buffer, WavRead::CH_MONO);
 }
 
-void Filter::GeneratorWav::fillBufferFloat(double *data, int len, WavRead::channel_t channel){
+void Filter::GeneratorWav::fillBufferFloat(float *data, int len, int offset, WavRead::channel_t channel){
 	if (len <= AUDIO_BUFFER_LEN){
-		//this->reader->fillBufferComplex(this->buffer[0], channel, 1);
 		this->reader->fillBufferComplex(data, channel, len, 1);
-		//memcpy(data, &this->buffer[0][0], len*sizeof(*data));
 	} else {
 		throw 25;
 	}
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+// SAW
+Filter::GanaratorSaw::GanaratorSaw() : Generator() {}
+Filter::GanaratorSaw::GanaratorSaw(float freq, float sampling, float falloff) : Generator() {
+	this->freq = freq, this->sampling = sampling;
+}
+
+Filter::GanaratorSaw::~GanaratorSaw(){}
+
+void Filter::GanaratorSaw::fillBufferFloat(float *data, int len, int offset, WavRead::channel_t channel){
+	float t0 = (float)offset / this->sampling;
+	float ts = 1. / this->sampling;
+	float ff = this->freq / this->sampling;
+	for(int i=0; i<len; i++){
+		
+	}
+}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 // Filterek
+// FFI Moving Avg
 
-void Filter::FilterRunningAvg:: render(double* inbuf, double* outbuf, int pos){
-	double in = inbuf[pos];
-	double res = in;
-	if (pos)res = inbuf[pos] + inbuf[pos-1];
-	outbuf[pos] = res;
+void Filter::Filter_FFI_MA::reset(){
+
 }
 
+void Filter::Filter_FFI_MA:: render(float* inbuf, float* outbuf, int length){
+	float out;
 
-// 
-void BmxResonanceFilter(double *psamples, int numsamples, double f, double q, double *b0, double *b1)
+	for (int i = 0; i < length; i++)
+	{
+		out = 0.0;
+		int pp = this->M>i?i:this->M;
+		for (int p=0; p<pp; p++){
+			out += 1./(float)(this->M) * inbuf[i-p];
+		}
+
+		outbuf[i]=out; 
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+// Filterek
+// FFI Sinc
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+/**
+	@param psamples mintak
+	@param numsamples mintak szama
+	@param f cutoff [0.1 .. 0.99]
+	@param q resonance [0.0 .. 0.88]
+*/
+void BmxResonanceFilter(float *psamples, int numsamples, float f, float q, float *b0, float *b1)
 {
-	double in, fb, buf0, buf1;
+	float in, fb, buf0, buf1;
 
 	buf0 = *b0;
 	buf1 = *b1;
@@ -130,7 +171,7 @@ void BmxResonanceFilter(double *psamples, int numsamples, double f, double q, do
 		buf0 = buf0 + f * (in - buf0 + fb * (buf0 - buf1));
 		buf1 = buf1 + f * (buf0 - buf1);
 
-		psamples[i] = (double) buf1;
+		psamples[i] = (float) buf1;
 	}
 
 	*b0 = buf0;
