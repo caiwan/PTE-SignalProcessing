@@ -129,7 +129,9 @@ section.guest #UIComponents{
 }
 
 section.guest #UIComponents input{
-	border: 0;
+	border-style:solid;
+	border: 1px;
+	border-color:#f6931f;
 	color: #f6931f;
 	font-weight: bold;
 }

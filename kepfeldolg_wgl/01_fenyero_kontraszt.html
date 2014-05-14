@@ -17,254 +17,49 @@ precision mediump float;
 #endif
 
 uniform float time;
-uniform vec2 mouse;
 uniform vec2 resolution;
 
-// Created by inigo quilez - iq/2013
-// License Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License.
+uniform sampler2D tex0;
 
-// A list of usefull distance function to simple primitives, and an example on how to 
-// do some interesting boolean operations, repetition and displacement.
-//
-// More info here: http://www.iquilezles.org/www/articles/distfunctions/distfunctions.htm
+uniform float brightness;
+uniform float contrast;
+uniform float gamma;
+uniform vec2 treshold;
 
-float sdPlane( vec3 p )
-{
-	return p.y+0.2;
+vec3 process(vec3 _color, 
+	in float _brightness, 
+	in float _contrast,
+	in float _gamma,
+	in vec2 _treshold
+){
+	vec3 color = _color;
+	color = color * _contrast + _brightness;
+	color = clamp(color, 0., 1.);	// invertalas megakadalyozasa
+	color = vec3(
+		pow(color.r, _gamma),
+		pow(color.g, _gamma),
+		pow(color.b, _gamma)
+	);
+	color = clamp(color, treshold.x, treshold.y);
+	return color;
 }
 
-float sdSphere( vec3 p, float s )
+void main()
 {
-    return length(p)-s;
-}
-
-float udRoundBox( vec3 p, vec3 b, float r )
-{
-  return length(max(abs(p)-b,0.0))-r;
-}
-
-float length2( vec2 p )
-{
-	return sqrt( p.x*p.x + p.y*p.y );
-}
-
-float length6( vec2 p )
-{
-	p = p*p*p; p = p*p;
-	return pow( p.x + p.y, 1.0/6.0 );
-}
-
-float length8( vec2 p )
-{
-	p = p*p; p = p*p; p = p*p;
-	return pow( p.x + p.y, 1.0/8.0 );
-}
-
-//----------------------------------------------------------------------
-
-float opS( float d1, float d2 )
-{
-    return max(-d2,d1);
-}
-
-float opU( float d1, float d2 )
-{
-	return (d1<d2) ? d1 : d2;
-}
-
-
-vec2 opU( vec2 d1, vec2 d2 )
-{
-	return (d1.x<d2.x) ? d1 : d2;
-}
-
-vec3 opRep( vec3 p, vec3 c )
-{
-    return mod(p,c)-0.5*c;
-}
-
-vec3 opTwist( vec3 p )
-{
-    float  c = cos(10.0*p.y+10.0);
-    float  s = sin(10.0*p.y+10.0);
-    mat2   m = mat2(c,-s,s,c);
-    return vec3(m*p.xz,p.y);
-}
-
-vec3 opTwist( vec3 p, float tc, float ts )
-{
-    float  c = cos(tc*p.y+ts);
-    float  s = sin(tc*p.y+ts);
-    mat2   m = mat2(c,-s,s,c);
-    return vec3(m*p.xz,p.y);
-}
-
-vec3 opTwist2( vec3 p, float tc, float ts, float cc)
-{
-    float  c = cos(cc*tc*p.y+ts);
-    float  s = sin(cc*tc*p.y+ts);
-    mat2   m = mat2(c,-s,s,c);
-    return vec3(m*p.xz,p.y);
-}
-
-vec3 opTwist3( vec3 p, float tc, float ts, float cc)
-{
-    float  c = cos(sin(tc*p.y)*cc*tc*p.y+ts);
-    float  s = sin(sin(tc*p.y)*cc*tc*p.y+ts);
-    mat2   m = mat2(c,-s,s,c);
-    return vec3(m*p.xz,p.y);
-}
-
-//----------------------------------------------------------------------
-
-vec2 map( in vec3 pos )
-{
-	float r = udRoundBox(opTwist3(pos, 5.0, time, sin(time)), vec3(0.2,0.2,1.0), 0.1);	
-	//vec2 res = opU( vec2( sdPlane(pos), 1.0 ), vec2(r, (abs(pos.y) * 200.0 + 700.0)));
-	vec2 res = vec2(r, sin(pos.y) * 200.0 + 700.0); 
-	return res;
-}
-
-//----------------------------------------------------------------------
-
-vec2 castRay( in vec3 ro, in vec3 rd, in float maxd )
-{
-    float precis = 0.001;
-    float h=precis*2.0;
-    float t = 0.0;
-    float m = -1.0;
-    for( int i=0; i<60; i++ )
-    {
-        if( abs(h)<precis||t>maxd ) break;
-        t += h;
-	    vec2 res = map( ro+rd*t );
-        h = res.x;
-	    m = res.y;
-    }
-
-    if( t>maxd ) m=-1.0;
-    return vec2( t, m );
-}
-
-
-float softshadow( in vec3 ro, in vec3 rd, in float mint, in float maxt, in float k )
-{
-	float res = 1.0;
-    float dt = 0.02;
-    float t = mint;
-    for( int i=0; i<20; i++ )
-    {
-		if( t<maxt )
-		{
-        float h = map( ro + rd*t ).x;
-        res = min( res, k*h/t );
-
-	t += 0.02;
-			
-		}
-    }
-    return clamp( res, 0.0, 1.0 );
-
-}
-
-vec3 calcNormal( in vec3 pos )
-{
-	vec3 eps = vec3( 0.001, 0.0, 0.0 );
-	vec3 nor = vec3(
-	    map(pos+eps.xyy).x - map(pos-eps.xyy).x,
-	    map(pos+eps.yxy).x - map(pos-eps.yxy).x,
-	    map(pos+eps.yyx).x - map(pos-eps.yyx).x );
-	return normalize(nor);
-}
-
-float calcAO( in vec3 pos, in vec3 nor )
-{
-	float totao = 0.0;
-    float sca = 1.0;
-    for( int aoi=0; aoi<5; aoi++ )
-    {
-        float hr = 0.01 + 0.05*float(aoi);
-        vec3 aopos =  nor * hr + pos;
-        float dd = map( aopos ).x;
-        totao += -(dd-hr)*sca;
-        sca *= 0.75;
-    }
-    return clamp( 1.0 - 4.0*totao, 0.0, 1.0 );
-}
-
-vec3 render( in vec3 ro, in vec3 rd )
-{ 
-    vec3 col = vec3(0.0);
-    vec2 res = castRay(ro,rd,20.0);
-    float t = res.x;
-	float m = res.y;
-    if( m>-0.5 )
-    {
-        vec3 pos = ro + t*rd;
-        vec3 nor = calcNormal( pos );
-
-		//col = vec3(0.6) + 0.4*sin( vec3(0.07,0.08,0.10)*(m-1.0) );
-		col = vec3(0.2) + 0.2*sin( vec3(0.07,0.01,0.06)*(m-1.0) );
-		//col = vec3(.1, .1, .4);
-		vec3 col2 = vec3(.4, .4, .02);
-		
-        float ao = calcAO( pos, nor );
-
-		vec3 lig = normalize( vec3(-1.0, 1.0, 1.0) );
-		float amb = clamp( 0.5+0.5*nor.y, 0.0, 1.0 );
-        float dif = clamp( dot( nor, lig ), 0.0, 1.0 );
-		//float dif = clamp( .5 + .5*dot( nor, lig ), 0.0, 1.0 );
-        float bac = clamp( dot( nor, normalize(vec3(-lig.x,0.0,-lig.z))), 0.0, 1.0 )*clamp( 1.0-pos.y,0.0,1.0);
-
-		float sh = 1.0;
-		if( dif>0.02 ) { sh = softshadow( pos, lig, 0.02, 10.0, 7.0 ); dif *= sh; }
-
-		vec3 brdf = vec3(0.0);
-		
-		brdf += 0.20*amb*vec3(0.20,0.00,0.00)*ao;	// ambient
-		brdf += 0.20*bac*vec3(0.15,0.0,0.15)*ao;		// back light
-		brdf += 1.20*dif*vec3(1.00,0.90,0.60);		// diffusal
-		
-		float pp = clamp( dot( reflect(rd,nor), lig ), 0.0, 1.0 );
-		float spe = sh*pow(pp,16.0);	// specular
-		float fre = ao*pow( clamp(1.0+dot(nor,rd),0.0,1.0), 2.0 );
-
-		//col = col*brdf + vec3(1.0)*col*spe + 0.2*fre*(0.5+0.5*col);
-		col = col*brdf + vec3(1.0)*col*spe + mix(col,col2, 0.4*fre);
-	}
-
-	col *= exp( -0.01*t*t );
-	col *= col;
+	vec2 uv = gl_FragCoord.xy / resolution.y;
 	
-	return vec3( clamp(col,0.0,1.0) );
-}
-
-void main( void )
-{
-	vec2 q = gl_FragCoord.xy/resolution.xy;
-    vec2 p = -1.0+2.0*q;
-	p.x *= resolution.x/resolution.y;
-    vec2 mo = mouse.xy/resolution.xy;
-		 
-	float tm = 15.0 + time;
-
-	// camera	
-	vec3 ro = vec3( 0.0, 0.5 , 1.5);	
-	vec3 ta = vec3( 0.0, 0.0, 0.0 );
+	vec3 tex = texture2D(tex0, vec2(uv.s, 1.-uv.t)).rgb;	// textura
+	if (uv.x>1.) tex = vec3(uv.t);							// jobb oldali gradient
 	
-	// camera tx
-	vec3 cw = normalize( ta-ro );
-	vec3 cp = vec3( 0.0, 1.0, 0.0 );
-	vec3 cu = normalize( cross(cw,cp) );
-	vec3 cv = normalize( cross(cu,cw) );
-	vec3 rd = normalize( p.x*cu + p.y*cv + 2.5*cw );
-
+	// szuro
+	vec3 color = process(tex, brightness, contrast, gamma, treshold);
 	
-    vec3 col = render( ro, rd );
-
-	col = sqrt( col );
-
-    gl_FragColor=vec4( col, 1.0 );
+	// hisztogram spektruma
+	float v = process(vec3(uv.t), brightness, contrast, gamma, treshold).x / (resolution.y/(resolution.x-resolution.y));
+	if(uv.x>1. && uv.x - v - 1. <= 0. ) color = .75*color + .25*vec3(.25,.75,.25);
+	
+	
+	gl_FragColor=vec4(color, 1.0 );
 }
 </script>
 
@@ -331,9 +126,19 @@ var App = {
 		this.setTresholdMax(max);
 	},
 	
+	texture_id: 0,
+	setTexture:function(tex){
+		vobj = checkAndTrim(tex, 0, 10);
+		if(vobj.error == 1) return;	// trimmelest kihagyjuk
+		this.texture_id = vobj.value;	
+	},
+	
 	texture_uri : [
 		"lenna.png",
 		"lenna_bw.png",
+		"cameraman.png",
+		"eggs.png",
+		"eveface.png",
 	],
 	
 	//////////////////////////////////////////////////////
@@ -358,6 +163,7 @@ var App = {
 		}
 		
 		return {
+			//parent: this,
 			renderer : renderer,
 			shader : shader,
 			input : inputs,
@@ -384,9 +190,19 @@ var App = {
 		canvas = dd.renderer.canvas;
 		dd.shader.setUniform2f("resolution", canvas.width, canvas.height);
 		
+		dd.textures[App.texture_id].bind(0);
+		dd.shader.setUniform1i("tex0", 0);
+		
+		dd.shader.setUniform1f("brightness", App.brightness / 100.);
+		dd.shader.setUniform1f("contrast", (100+App.contrast) / 100.);
+		dd.shader.setUniform1f("gamma", App.gamma / 100.);
+		dd.shader.setUniform2f("treshold", App.treshold.min/100, App.treshold.max/100);
+		
 		gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 		
 		dd.shader.disableAttribArray("aVertexPosition");
+		
+		dd.textures[App.texture_id].unbind(0);
 		dd.shader.unbind();
 	},
 	
@@ -434,8 +250,16 @@ var App = {
 	//////////////////////////////////////////////////////////////
 	
 	fillTextureList:function(){
-		$("fillTextureList")
-	}
+		var list = $("#select_texture");
+		list.text("");
+		for(i=0; i<this.texture_uri.length; i++){
+			list.append($("<option />").val(i).text(this.texture_uri[i]));
+		}
+		list.on("change", function(e){
+			App.setTexture(parseInt($("#select_texture").val()));
+			//console.log(App.texture_id +" : "+$("#select_texture").val());
+		})
+	},
 	
 	createUI:function(){
 		// user interface elemek letrehozasa

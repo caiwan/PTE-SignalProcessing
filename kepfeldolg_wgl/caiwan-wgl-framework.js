@@ -1,3 +1,10 @@
+/**
+
+
+*/
+
+var wgl_lib_verbose=true;
+
  /**
  * Biztosit egy mainloop visszavivast, ami tobb bongeszovel is mukodik, 
  * legalabbis elvileg.
@@ -20,7 +27,7 @@ window.requestAnimFrame = (function() {
  
 var gl;
 function Renderer(ccanvasID){
-	console.log("CSNC Framwrork JS edition version 0.0.1 by Caiwan/IR 2014");
+	if (wgl_lib_verbose) console.log("CSNC Framwrork JS edition version 0.0.1 by Caiwan/IR 2014");
 	var object = {
 		
 		// Mezok
@@ -36,17 +43,17 @@ function Renderer(ccanvasID){
 				this.canvasID = canvasID;
 				this.canvas = document.getElementById(canvasID);
 				
-				console.log("CanvasID: "+canvasID + " : "+this.canvas);
+				if (wgl_lib_verbose) console.log("CanvasID: "+canvasID + " : "+this.canvas);
 				
 				this.gl = this.canvas.getContext("experimental-webgl");
 				this.gl.viewportWidth = this.canvas.width;
 				this.gl.viewportHeight = this.canvas.height;
 				
-				console.log("Canvas : " + this.canvas.width + " x " + this.canvas.height);
+				if (wgl_lib_verbose) console.log("Canvas : " + this.canvas.width + " x " + this.canvas.height);
 				
 				gl = this.gl;
 			} catch (e) {
-				console.log("Exception:"+e);
+				if (wgl_lib_verbose) console.log("Exception:"+e);
 			}
 			if (!gl) {
 				alert("Could not initialize WebGL, sorry :-(");
@@ -57,7 +64,7 @@ function Renderer(ccanvasID){
 			this.canvas = document.getElementById(this.canvasID);
 			this.gl.viewportWidth = this.canvas.width;
 			this.gl.viewportHeight = this.canvas.height;
-			console.log("Canvas : " + this.canvas.width + " x " + this.canvas.height);			
+			if (wgl_lib_verbose) console.log("Canvas : " + this.canvas.width + " x " + this.canvas.height);			
 		},
 		
 		/**
@@ -90,7 +97,7 @@ function Renderer(ccanvasID){
 				this.FPS = this.frameCount;
 				this.frameCount = 0;
 				this.frameTime = 0;
-				if (this.consoleLogFPS) console.log("FPS: " + this.FPS);
+				if (this.consoleLogFPS) if (wgl_lib_verbose) console.log("FPS: " + this.FPS);
 				this.showFPSCallback(this.FPS);
 			} else {
 				this.frameTime += elapsed;
@@ -171,6 +178,8 @@ function arrayBufferDataUri(raw, type) {
 /**
  * Texture
  */
+var wgl_texture_isParalellLoad = false;
+ 
 function Texture(_uri){
 	var _id = gl.createTexture();
 	
@@ -179,6 +188,8 @@ function Texture(_uri){
 		uri: _uri,
 		level: 0,
 		image: 0,
+		wait:0,
+		isLoaded : false,
 		
 		buildTexture: function(image){
 			this.image = image;
@@ -192,6 +203,8 @@ function Texture(_uri){
 			gl.generateMipmap(gl.TEXTURE_2D);
 			
 			gl.bindTexture(gl.TEXTURE_2D, null);
+			
+			this.isLoaded = true;
 		},
 		
 		bind: function(level){
@@ -201,12 +214,12 @@ function Texture(_uri){
 		},
 		
 		unbind: function(){
-			gl.activeTexture(gl.TEXTURE0 + level);
-			gl.bindTexture(gl.TEXTURE_2D, 0);
+			gl.activeTexture(gl.TEXTURE0 + this.level);
+			gl.bindTexture(gl.TEXTURE_2D, null);
 		},
 	};
 	
-	console.log("Loading image as texture:"+_uri+" at "+_id);
+	if (wgl_lib_verbose) console.log("Loading image as texture:"+_uri+" at "+_id);
 	try {
 	/*
 		var xhr = new XMLHttpRequest();
@@ -217,31 +230,39 @@ function Texture(_uri){
 			img.crossOrigin = "Anonymous";
 			img.onload = function() {
 				obj.buildTexture(img);
-				console.log("Building texture:"+_uri);
+				if (wgl_lib_verbose) console.log("Building texture:"+_uri);
 			};
 			img.src = arrayBufferDataUri(xhr.response, "png");
 		};
 		xhr.send(null);
 	*/
 	
-	var img = new Image();
-	img.crossOrigin = "Anonymous";
-	img.onload = function() {
-		obj.buildTexture(img);
-		console.log("Building texture:"+_uri);
-	};
-	img.src = _uri;
+		var img = new Image();
+		img.crossOrigin = "Anonymous";
+		img.onload = function() {
+			obj.buildTexture(img);
+			if (wgl_lib_verbose) console.log("Building texture:"+_uri);
+			obj.isLoaded = true;
+			console.log("done!");
+		};
+		img.src = _uri;
 	
 	} catch (ex){
 		// source-orign-policy
 		if(ex.code = 19){
-			console.log("WARNING: Cannot load the orthodox way due to SOP. Trying an other method. id="+_uri);
+			if (wgl_lib_verbose) console.log("WARNING: Cannot load the orthodox way due to SOP. Trying an other method. id="+_uri);
 			//throw ex;
 			obj.id = null;
 		} else {
 			throw ex;
 		}
 	}
+	
+	// megvarja ameddig betoltodik a textura a hatterben
+	// broken.
+	//var k = 65536;
+	//if (!wgl_texture_isParalellLoad) while(!obj.isLoaded && k--) obj.wait++;
+	//console.log(obj);
 	
 	return obj;
 }
@@ -263,18 +284,18 @@ function Shader(vertex_id, fragment_id){
 	var fragmentSource = document.getElementById(fragment_id);
 	
 	if (!vertexSource || !fragmentSource) {
-		console.log("Missing shader source.");
-		if(vertexSource) console.log("VERTEX OK.");
-		if(fragmentSource) console.log("FRAGMENT OK.");
+		if (wgl_lib_verbose) console.log("Missing shader source.");
+		if(vertexSource) if (wgl_lib_verbose) console.log("VERTEX OK.");
+		if(fragmentSource) if (wgl_lib_verbose) console.log("FRAGMENT OK.");
 		return null;
 	}
 	
 	if (vertexSource.type != "x-shader/x-vertex" || fragmentSource.type != "x-shader/x-fragment"){
-		console.log("Shader source type mismatch. VSS:" + vertexSource.type + " FSS:" + fragmentSource.type);
+		if (wgl_lib_verbose) console.log("Shader source type mismatch. VSS:" + vertexSource.type + " FSS:" + fragmentSource.type);
 		return null;
 	}
 	
-	console.log("Generating new shader. VSS:"+ vertex_id + " FSS:" + fragment_id);
+	if (wgl_lib_verbose) console.log("Generating new shader. VSS:"+ vertex_id + " FSS:" + fragment_id);
 	
 	// Vertex shader
 	var vertexShader = gl.createShader(gl.VERTEX_SHADER);
@@ -293,11 +314,11 @@ function Shader(vertex_id, fragment_id){
 	
 	if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
 		alert("Vertex shader compilation failed.");
-		console.log(gl.getShaderInfoLog(vertexShader));
+		if (wgl_lib_verbose) console.log(gl.getShaderInfoLog(vertexShader));
 		return null;
 	}
 	
-	console.log("Vertex Shader OK id=" + vertexShader);
+	if (wgl_lib_verbose) console.log("Vertex Shader OK id=" + vertexShader);
 	
 	// Fragment shader
 	var fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
@@ -316,11 +337,11 @@ function Shader(vertex_id, fragment_id){
 	
 	if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
 		alert("Fragment shader compilation failed.");
-		console.log(gl.getShaderInfoLog(fragmentShader));
+		if (wgl_lib_verbose) console.log(gl.getShaderInfoLog(fragmentShader));
 		return null;
 	}
 	
-	console.log("Fragment Shader OK id=" + fragmentShader);
+	if (wgl_lib_verbose) console.log("Fragment Shader OK id=" + fragmentShader);
 	
 	// Link
 	var shaderProgram = gl.createProgram();
@@ -330,10 +351,10 @@ function Shader(vertex_id, fragment_id){
 
 	if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
 		alert("Shader linking failed.");
-		console.log(gl.getProgramInfoLog(shaderProgram));
+		if (wgl_lib_verbose) console.log(gl.getProgramInfoLog(shaderProgram));
 	}
 	
-	console.log("Shader linking OK id="+shaderProgram);
+	if (wgl_lib_verbose) console.log("Shader linking OK id="+shaderProgram);
 	
 	return {
 		program : shaderProgram,
@@ -351,6 +372,7 @@ function Shader(vertex_id, fragment_id){
 		disableAttribArrayBYID : function(loc) {gl.disableVertexAttribArray(loc);},
 		
 		// uniformok
+		setUniform1i : function(name, v0){gl.uniform1i(this.getUniformLoc(name), v0);},
 		setUniform1f : function(name, v0){gl.uniform1f(this.getUniformLoc(name), v0);},
 		setUniform2f : function(name, v0, v1){gl.uniform2f(this.getUniformLoc(name), v0, v1);},
 		setUniform3f : function(name, v0, v1, v2){gl.uniform3f(this.getUniformLoc(name), v0, v1, v2);},
