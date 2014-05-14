@@ -29,8 +29,7 @@ namespace Filter{
 			Filter(){}
 			virtual ~Filter(){}
 
-			virtual void reset() = 0;
-			virtual void render(float* inbuf, float* outbuf, int pos) = 0;
+			virtual void render(float* inbuf, float* outbuf, int length) = 0;
 	};
 
 	class Chain : public Generator{
@@ -92,14 +91,17 @@ namespace Filter{
 		private:
 			float freq;
 			float sampling;
-			//float falloff;
+			float falloff;
 			//int lasttick;
+
+			float s, u, ts, ff, fu;
+
 		public:
 			GanaratorSaw();
 			GanaratorSaw(float freq, float sampling, float falloff);
-			~GanaratorSaw();
+			virtual ~GanaratorSaw();
 
-			void tick(float freq, float sampling, float falloff){this->freq = freq, this->sampling = sampling;}
+			inline void tick(float freq, float sampling, float falloff);
 
 		protected:
 			virtual void fillBufferFloat(float *data, int len, int offset, WavRead::channel_t channel);
@@ -112,33 +114,53 @@ namespace Filter{
 	/**
 	
 	*/
-	class Filter_FFI_MA : public Filter{
+	class Filter_FIR_MA : public Filter{
 		private:
 			int M;
 		public:
-			Filter_FFI_MA(int m) : Filter() {
+			Filter_FIR_MA(int m) : Filter() {
 				this->M = m;
 			}
-			virtual void reset();
-			virtual void render(float* inbuf, float* outbuf, int pos);
+			virtual void render(float* inbuf, float* outbuf, int length);
 	};
 
 	/// Finite Impulse Response -  Movin Average Konvolucios szuro
 	/**
 	
 	*/
-	class Filter_FFI_Sinc : public Filter{
+	class Filter_FIR_Sinc : public Filter{
 		private:
 			int M;
 			float simga;
 			float *impulse;
 
+		public:
+			Filter_FIR_Sinc(int m, float sigma, float sampling);
+			~Filter_FIR_Sinc();
+
+			virtual void render(float* inbuf, float* outbuf, int length);
+	};
+
+	/// Infinite Impusle Response - Resonance Filter
+	/**
+	*/
+
+	class Filter_IIR_Resonance : public Filter{
+		private:
+			float buf[2];
+			float cutoff, resonance;
+			float cut_lfo, res_lfo;
+			float sampling, ts, t0;
 
 		public:
-			Filter_FFI_Sinc(int m, float sigma);
-			~Filter_FFI_Sinc();
+			Filter_IIR_Resonance();
+			Filter_IIR_Resonance(float cut_flo, float res_lfo, float sampling);
+			virtual ~Filter_IIR_Resonance();
 
-			virtual void reset();
-			virtual void render(float* inbuf, float* outbuf, int pos);
+			inline void tick(float _cutoff, float _resonance){
+				this->cutoff = _cutoff; this->resonance = _resonance;
+			}
+
+			virtual void render(float* inbuf, float* outbuf, int length);
 	};
 };

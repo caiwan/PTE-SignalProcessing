@@ -21,9 +21,6 @@
     <ClCompile Include="wavread.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="FreqFilter.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Filter.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -33,9 +30,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="wavread.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="FreqFilter.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="filter.h">

@@ -1,5 +1,10 @@
 #include "Filter.h"
 
+#include <cmath>
+
+#undef M_PI
+#define M_PI       3.14159265358979323846
+
 ////
 void BmxResonanceFilter(float *psamples, int numsamples, float f, float q, float *b0, float *b1);
 
@@ -105,17 +110,32 @@ void Filter::GeneratorWav::fillBufferFloat(float *data, int len, int offset, Wav
 // SAW
 Filter::GanaratorSaw::GanaratorSaw() : Generator() {}
 Filter::GanaratorSaw::GanaratorSaw(float freq, float sampling, float falloff) : Generator() {
-	this->freq = freq, this->sampling = sampling;
+	this->tick(freq,  sampling, falloff);
 }
 
 Filter::GanaratorSaw::~GanaratorSaw(){}
 
+void Filter::GanaratorSaw::tick(float _freq, float _sampling, float _falloff){
+	this->freq = _freq;
+	this->sampling = _sampling;
+	this->falloff = _falloff;
+	this->s = this->u = 0.;
+	this->ts = 1. / this->sampling;
+	this->ff = this->freq / this->sampling;
+	this->fu = this->falloff / this->sampling;
+}
+
 void Filter::GanaratorSaw::fillBufferFloat(float *data, int len, int offset, WavRead::channel_t channel){
-	float t0 = (float)offset / this->sampling;
-	float ts = 1. / this->sampling;
-	float ff = this->freq / this->sampling;
+	//float t0 = (float)offset / this->sampling;
+	//float t;
 	for(int i=0; i<len; i++){
+		this->u += this->fu;
+ 		if (this->u>.999) this->u = 0.;
+
+		this->s += this->ff;
+		if (this->s>.999) this->s = 0.;
 		
+		data[i] = (1-this->s-.5)*(1.-this->u);
 	}
 }
 
@@ -123,11 +143,7 @@ void Filter::GanaratorSaw::fillBufferFloat(float *data, int len, int offset, Wav
 // Filterek
 // FFI Moving Avg
 
-void Filter::Filter_FFI_MA::reset(){
-
-}
-
-void Filter::Filter_FFI_MA:: render(float* inbuf, float* outbuf, int length){
+void Filter::Filter_FIR_MA:: render(float* inbuf, float* outbuf, int length){
 	float out;
 
 	for (int i = 0; i < length; i++)
@@ -142,9 +158,119 @@ void Filter::Filter_FFI_MA:: render(float* inbuf, float* outbuf, int length){
 	}
 }
 
+
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 // Filterek
 // FFI Sinc
+
+Filter::Filter_FIR_Sinc::Filter_FIR_Sinc(int _m, float _sigma, float _sampling){
+	this->impulse = new float[_m];
+	this->M = _m;
+	this->simga = _sigma;
+	float ts = 1./_sampling, t;
+
+	for(int i=0; i<_m; i++){
+		if(i){
+			t = ts*(float) i;
+			this->impulse[i] = 2*_sigma*(sin(2*M_PI*_sigma*t));
+		} else {
+			this->impulse[i] = 1.;
+		}
+	}
+}
+
+Filter::Filter_FIR_Sinc::~Filter_FIR_Sinc(){
+	if(this->impulse) delete this->impulse;
+}
+
+void Filter::Filter_FIR_Sinc::render(float* inbuf, float* outbuf, int length){
+	float out;
+
+	for (int i = 0; i < length; i++)
+	{
+		out = 0.0;
+		int pp = this->M>i?i:this->M;
+		for (int p=0; p<pp; p++){
+			out += this->impulse[i] * inbuf[i-p];
+		}
+
+		outbuf[i]=out; 
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+// Filterek
+// IIF Resonance
+
+Filter::Filter_IIR_Resonance::Filter_IIR_Resonance() : Filter(){
+	this->buf[0] = 0.;
+	this->buf[1] = 0.;
+	this->resonance = 0.1;
+	this->cutoff = 0.1;
+
+	this->sampling = 44100;
+	this->res_lfo = 0.;
+	this->cut_lfo = 0.;
+
+	this->t0 = 0;
+	this->ts = 1./this->sampling;
+}
+
+Filter::Filter_IIR_Resonance::Filter_IIR_Resonance(float _cut_lfo, float _res_lfo, float _sampling) : Filter(){
+	this->buf[0] = 0.;
+	this->buf[1] = 0.;
+	this->resonance = 0.;
+	this->cutoff = 0.;
+
+	this->sampling = _sampling;
+	this->res_lfo = _res_lfo / this->sampling;
+	this->cut_lfo = _cut_lfo / this->sampling;
+
+	this->t0 = 0;
+	this->ts = 1./this->sampling;
+}
+
+Filter::Filter_IIR_Resonance::~Filter_IIR_Resonance(){
+}
+
+void Filter::Filter_IIR_Resonance::render(float *inbuf, float *outbuf, int len){
+	double in, fb, out;
+	double f = this->cutoff, q = this->resonance;
+
+	float t = 0;
+
+	fb = q + q / (1.0 - f);
+
+	for (int i = 0; i < len; i++)
+	{
+		if (this->cut_lfo > 0.){
+			t = this->t0 + (float) i * this->ts;
+			
+			this->tick(
+				0.475 * (1. + cos(t*this->cut_lfo*M_PI)), 
+				0.475 * (1. + sin(t*this->res_lfo*M_PI))
+			);
+			
+			this->t0 = t;
+
+			f = this->cutoff, q = this->resonance;
+			fb = q + q / (1.0 - f);
+		}
+
+		in = inbuf[i];
+
+		buf[0] = buf[0] + f * (in - buf[0] + fb * (buf[0] - buf[1]));
+		buf[1] = buf[1] + f * (buf[0] - buf[1]);
+
+		out = (float)buf[1];
+
+		if (out>1.) out = 1.;
+		if (out<-1.) out = -1.;
+
+		outbuf[i] = out;
+	}
+}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 //
