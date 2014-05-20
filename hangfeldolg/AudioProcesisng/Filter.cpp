@@ -172,8 +172,9 @@ Filter::Filter_FIR_Sinc::Filter_FIR_Sinc(int _m, float _sigma, float _sampling){
 
 	for(int i=0; i<_m; i++){
 		if(i){
-			t = ts*(float) i;
-			this->impulse[i] = 2*_sigma*(sin(2*M_PI*_sigma*t));
+			//t = ts*(float) i;
+			t = (float) i-.5*(float)_m;
+			this->impulse[i] = sin(2*M_PI*_sigma*t)/(M_PI*t);
 		} else {
 			this->impulse[i] = 1.;
 		}
@@ -192,7 +193,7 @@ void Filter::Filter_FIR_Sinc::render(float* inbuf, float* outbuf, int length){
 		out = 0.0;
 		int pp = this->M>i?i:this->M;
 		for (int p=0; p<pp; p++){
-			out += this->impulse[i] * inbuf[i-p];
+			out += this->impulse[p] * inbuf[i-p];
 		}
 
 		outbuf[i]=out; 

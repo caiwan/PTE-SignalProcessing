@@ -42,7 +42,8 @@ void drawBars(const complex *data, int samplerate, int samplelen, int x, int y, 
 	float fft_freqstep = 1./(float) samplerate;
     float freqstep = 3./(float)pos.w; // 10^4 nagysagrendig megyunk
 
-	float scale = 3./((float)(samplelen));
+	float scale = .5*(float)pos.h/((float)(samplelen));
+	//float scale = 1.;
 	
     SDL_LockSurface(screen);
 
@@ -112,7 +113,7 @@ int drawSpectogram(const complex *data, int samplerate, int samplelen, int x, in
 	float fft_freqstep = 1./(float) samplerate;
     float freqstep = 3./(float)pos.h; // 10^4 nagysagrendig megyunk
 
-	float scale = 15./((float)(samplelen));
+	float scale = 128./((float)(samplelen));
 
     for(int py=0; py<pos.h; py++){
         freq = 20.*pow(10,(float)(py)*freqstep);
@@ -127,7 +128,7 @@ int drawSpectogram(const complex *data, int samplerate, int samplelen, int x, in
 		float f = fabs(CubicInterpolate(f0, f1, f2, f3, t));
 		f = (f>1.)?1.:f;
 		f = (f<0.)?0.:f;
-		cc[py] = (unsigned char)(f * 255);
+		cc[py] = (unsigned char)(f* 255);
     }
 
 	SDL_LockSurface(screen);
@@ -152,11 +153,9 @@ int main(int argc, char* argv[]){
     SDL_Event event;
 
     SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO);
-	screen = SDL_SetVideoMode(512, 320, 32, SDL_SWSURFACE | SDL_DOUBLEBUF);
-    //screen = SDL_SetVideoMode(1024, 640, 32, SDL_SWSURFACE | SDL_DOUBLEBUF /*| SDL_HWSURFACE*/);
+	//screen = SDL_SetVideoMode(512, 320, 32, SDL_SWSURFACE | SDL_DOUBLEBUF);
+    screen = SDL_SetVideoMode(1024, 640, 32, SDL_SWSURFACE | SDL_DOUBLEBUF /*| SDL_HWSURFACE*/);
 	//screen = SDL_SetVideoMode(1920, 1080, 32, SDL_SWSURFACE | SDL_DOUBLEBUF |SDL_FULLSCREEN);
-
-    printf("FFT WavViz by Caiwan^IR \r\n");
 
     FILE *fp = stdin;
 
@@ -258,8 +257,6 @@ int main(int argc, char* argv[]){
                 else throw e;
             }
 
-            SDL_Flip(screen);
-
 			//if(!isReadFromStdin){
 			running = !reader->isEndOfStream();
 			//}
@@ -293,6 +290,8 @@ int main(int argc, char* argv[]){
                     break;
                 }
             }
+
+			SDL_Flip(screen);
         }
 
         WavPlayer::DestroyAudio();
