@@ -1,0 +1,429 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-US" lang="en-US">
+<head>
+	<title></title>
+	<link rel="stylesheet" type="text/css" href="style.css" />
+	<link href="jquery/css/ui-lightness/jquery-ui-1.10.4.custom.css" rel="stylesheet">
+	
+	<script type="text/javascript" src="gl-matrix.js"></script>
+	<script type="text/javascript" src="caiwan-wgl-framework.js"></script>
+	<script src="jquery/js/jquery-1.10.2.js"></script>
+	<script src="jquery/js/jquery-ui-1.10.4.custom.js"></script>
+	
+	<script id="shader-fs" type="x-shader/x-fragment">
+#ifdef GL_ES
+precision mediump float;
+#endif
+
+#define M_PI 3.14159265359
+
+uniform float time;
+uniform vec2 resolution;
+
+uniform sampler2D tex0;
+
+uniform vec4 point0;
+uniform vec4 point1;
+
+
+float cubic(float x, float v0,float v1, float v2,float v3){
+	float p = (v3 - v2) - (v0 - v1);
+	return p*(x*x*x) + ((v0 - v1) - p)*(x*x) + (v2 - v0)*x + v1;
+}
+
+float catmull_rom(float x, float v0,float v1, float v2,float v3){
+	float c2 = -.5 * v0	+ 0.5*v2;
+	float c3 = v0		+ -2.5*v1 + 2.0*v2 + -.5*v3;
+	float c4 = -.5 * v0	+ 1.5*v1 + -1.5*v2 + 0.5*v3;
+	return(((c4 * x + c3) * x + c2) * x + v1);	
+}
+
+float thirdOrderSpline(float x, float L1,float L0, float H0,float H1) {
+	return L0 +.5 *
+			x * ( H0-L1 +
+			x * ( H0 + L0 * -2.0 +  L1 +
+			x * ((H0 - L0)* 9.0	 + (L1 - H1)*3.0 +
+			x * ((L0 - H0)* 15.0 + (H1 - L1)*5.0 +
+			x * ((H0 - L0)* 6.0	 + (L1 - H1)*2.0 )))));
+}
+
+float cosine(float x, float v0, float v1) {
+	x = (1.0-cos(x*3.1415927)) * .5; return (v1-v0)*x + v0;
+}
+
+float linear(float x, float v0, float v1) {
+	return (v1-v0)*x + v0;
+}
+
+//https://www.shadertoy.com/view/MsXGDj
+
+#define Use_Linear
+//#define Use_Cubic
+//#define Use_Cosine
+//#define Use_ThirdOrderSpline
+//#define Use_Catmull_Rom
+
+float interpolate (float p0, float p1, float mu, float w0, float w1){
+	float t = 0., a = 0., b = p0, c = p1 , d = 1.;
+	if (mu>=0. && mu<w0) // 0 es w1 kozott
+	{
+		t = mu / w0; 
+		//a = 0.; b = p0; // default minden
+	} else if (mu>=w0 && mu<w1) // w1 es w2 kozott
+	{
+		t = (mu-w0) / (w1-w0);
+		a = p0, b = p1, c = d = 1.;
+	} else //if (mu>=w2&& mu<1.) // w2 es 1 kozott
+	{
+		t = (mu-w1) / (1.-w1);
+		a = p1, b = c = d = 1.;
+	}
+	/*
+	return linear(t, c, d);
+	*/
+	
+#ifdef Use_Linear
+	return linear(t, a, b);
+#elif defined Use_Cosine
+	return cosine(t, a, b);
+#elif defined Use_Cubic
+	return cubic(t, a, b, c, d);
+#elif defined Use_Catmull_Rom
+	return catmull_rom(t, a, b, c, d);
+#elif defined Use_ThirdOrderSpline
+	return thirdOrderSpline(t, a, b, c, d);
+#endif
+	
+}
+
+vec3 process(vec3 _color, in vec4 point0, in vec4 point1){
+	return clamp(vec3(
+		interpolate(point0.r, point1.r, _color.r, point0.w, point1.w),
+		interpolate(point0.g, point1.g, _color.g, point0.w, point1.w),
+		interpolate(point0.b, point1.b, _color.b, point0.w, point1.w)
+		), 0., 1.
+	);
+}
+
+void main()
+{
+	float ar = resolution.x / resolution.y;
+	vec2 uv = gl_FragCoord.xy / resolution.y;
+	
+	vec3 tex = texture2D(tex0, vec2(uv.s, 1.-uv.t)).rgb;	// textura
+	if (uv.x>1.){
+		tex = vec3(uv.t);
+		float bb = uv.x - ar + .25;
+		if (bb>0.){
+			tex *= 2.;
+			tex.r *= cos((0.   + bb) * M_PI * 4.);
+			tex.g *= cos((.375 + bb) * M_PI * 4.);
+			tex.b *= cos((.25  + bb) * M_PI * 4.);
+			tex = clamp(tex, 0., 1.);
+			tex = mix(vec3(.5), tex, smoothstep(0.,1.,clamp(2.*(.95-uv.y), 0. , 1.)));
+		}
+	}
+	
+	// szuro
+	vec3 color = process(tex, point0, point1);
+	
+	// hisztogram spektruma
+	float vx = (uv.x-1.) / (ar-1.25);	// tudomanyos pontossaggal meg van hatarozva
+	vec3 v = process(vec3(vx),  point0, point1); // / (resolution.y/(resolution.x-resolution.y));
+	float vy = uv.y;
+	if (vx>0. && vx <= 1. ) {
+		if(abs(vy-v.x) <= 0.01) color.r -= .4;
+		if(abs(vy-v.y) <= 0.01) color.g -= .4;
+		if(abs(vy-v.z) <= 0.01) color.b -= .4;
+		
+		if(abs(vy-v.x) <= 0.004) color.r += .8;
+		if(abs(vy-v.y) <= 0.004) color.g += .8;
+		if(abs(vy-v.z) <= 0.004) color.b += .8;
+	}
+	gl_FragColor=vec4(color, 1.0 );
+}
+</script>
+
+<script id="shader-vs" type="x-shader/x-vertex">
+    attribute vec3 aVertexPosition;
+    void main(void) {
+        gl_Position = vec4(aVertexPosition, 1.0);
+    }
+</script>
+	
+	<script>
+
+// valtozokat ellenoriz	
+function trimVal(_value, _min, _max){
+	if(isNaN(_value)) {return (_min+_max)/2.;}
+	if(_value<_min){return _min;}
+	if(_value>_max){return _max;}
+	
+	return _value;
+}
+// fucking haxx
+// http://skerit.com/en/programming/injecting-variables-into-a-functions-scope-in-javascript/
+Function.prototype.compel = function(scope, args, scope_args) {
+	var code = '';
+ 
+	// Every scope_args entry will be added to this code
+	for (var name in scope_args) {
+		code += 'var ' + name + ' = scope_args["' + name + '"];';
+	}
+ 
+	// eval the code, so these variables are available in this scope
+	eval(code);
+ 
+	if (!this.__source__) this.__source__ = String(this);
+ 
+	eval('var fnc = ' + this.__source__);
+ 
+	// Apply the function source
+	fnc.apply(scope, args);
+}
+
+var App = {
+	controls:[
+		{name : "outR0", min: 0,   max: 255, val :64,  update:function(val){this.val = trimVal(val, this.min, this.max); App.updateUI(0);}},
+		{name : "outG0", min: 0,   max: 255, val :64,  update:function(val){this.val = trimVal(val, this.min, this.max); App.updateUI(1);}},
+		{name : "outB0", min: 0,   max: 255, val :64,  update:function(val){this.val = trimVal(val, this.min, this.max); App.updateUI(2);}},
+		{name : "in0",   min: 0,   max: 128, val :64,  update:function(val){this.val = trimVal(val, this.min, this.max); App.updateUI(3);}},
+		{name : "outR1", min: 0,   max: 255, val :192, update:function(val){this.val = trimVal(val, this.min, this.max); App.updateUI(4);}},
+		{name : "outG1", min: 0,   max: 255, val :192, update:function(val){this.val = trimVal(val, this.min, this.max); App.updateUI(5);}},
+		{name : "outB1", min: 0,   max: 255, val :192, update:function(val){this.val = trimVal(val, this.min, this.max); App.updateUI(6);}},
+		{name : "in1",   min: 128, max: 255, val :192, update:function(val){this.val = trimVal(val, this.min, this.max); App.updateUI(7);}}
+	],
+
+	texture_id: 0,
+	setTexture:function(tex){
+		this.texture_id = trimVal(tex, 0, this.texture_uri.length);
+	},
+	
+	texture_uri : [
+		"lenna.png",
+		"lenna_bw.png",
+		"cameraman.png",
+		"eggs.png",
+		"eveface.png",
+		"zaush_overlay-curves.jpg"
+	],
+	
+	//////////////////////////////////////////////////////
+	initRenderer : function(renderer){ 
+	
+		var shader = new Shader("shader-vs", "shader-fs");
+		
+		// beallitjuk az inputokat
+		var inputs = new Input();
+		
+		// fullscreen quad
+		var screenQuad = new Buffer(new Float32Array([
+             1.0,  1.0,  0.0,
+            -1.0,  1.0,  0.0,
+             1.0, -1.0,  0.0,
+            -1.0, -1.0,  0.0
+		]), 3, 4);
+		
+		var textures = new Array();
+		
+		for (i=0; i<this.texture_uri.length; i++){
+			textures[i] = new Texture("images/textures/"+this.texture_uri[i]);
+		}
+		
+		return {
+			//parent: this,
+			renderer : renderer,
+			shader : shader,
+			input : inputs,
+			screenQuad : screenQuad,
+			textures : textures,
+			
+			id : 0
+		};
+	},
+	
+	mainloop: function (time, dd){
+		gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+		gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        //gl.enable(gl.DEPTH_TEST);
+		
+		dd.shader.bind();
+		
+		dd.shader.enableAttribArray("aVertexPosition");
+		dd.screenQuad.bindToAttrib(dd.shader, "aVertexPosition");
+		
+		dd.shader.setUniform1f("time", time/1000.);
+		//dd.shader.setUniform2f("resolution", 640, 480);
+		canvas = dd.renderer.canvas;
+		dd.shader.setUniform2f("resolution", canvas.width, canvas.height);
+		
+		dd.textures[App.texture_id].bind(0);
+		dd.shader.setUniform1i("tex0", 0);
+		
+		dd.shader.setUniform4f("point0", App.controls[0].val/255, App.controls[1].val/255, App.controls[2].val/255, App.controls[3].val/255);
+		dd.shader.setUniform4f("point1", App.controls[4].val/255, App.controls[5].val/255, App.controls[6].val/255, App.controls[7].val/255);
+		
+		gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+		
+		dd.shader.disableAttribArray("aVertexPosition");
+		
+		dd.textures[App.texture_id].unbind(0);
+		dd.shader.unbind();
+	},
+	
+	//////////////////////////////////////////////////////
+	main : function(){
+		// ui-k
+		this.createUI();
+		
+		// tagek hozzaadasa
+		// ez elegge ronda megoldas, hogy jquery es vanilla js keverve van jelen
+		var mainDiv, mainCanvas;
+		
+		mainDiv = $("#renderSurface");
+		mainCanvas = document.createElement('canvas');
+		mainCanvas.id = 'glcanvas';
+		
+		mainDiv.html(mainCanvas);
+		
+		// uj renderer letrehozasa
+		var renderer = new Renderer(mainCanvas.id);
+		App.resizeCanvas(mainDiv, mainCanvas, renderer);
+		
+		// renderer dolgainak inicializalasa
+		var stuff = App.initRenderer(renderer);
+		
+		// final touch
+		//this.updateUI(-1);
+		this.fillTextureList();
+		
+		// callback beallit
+		renderer.mainloopCallback = function(time){App.mainloop(time, stuff);};
+		
+		// mainloop indit
+		renderer.mainLoop();
+	},
+	
+	resizeCanvas: function (div, canvas, renderer){
+		canvas.width = div.width();
+		canvas.height = div.height();
+		
+		renderer.resizeViewport();
+	},
+	
+	//////////////////////////////////////////////////////////////
+	
+	fillTextureList:function(){
+		var list = $("#select_texture");
+		list.text("");
+		for(i=0; i<this.texture_uri.length; i++){
+			list.append($("<option />").val(i).text(this.texture_uri[i]));
+		}
+		list.on("change", function(e){
+			App.setTexture(parseInt($("#select_texture").val()));
+			
+		})
+	},
+		
+	createUI:function(){
+
+		for(i=0; i<this.controls.length; i++){
+			//this.controls[i].create();
+			var szopogomboc = this.controls[i];
+			$( "#slider_"+szopogomboc.name).slider({
+				min: szopogomboc.min, max: szopogomboc.max, value: szopogomboc.val, 
+				slide: (function(i){
+					return function(evt,ui){
+						App.controls[i].update(ui.value);
+					}
+				})(i)
+			}); 
+				
+			$("#value_"+szopogomboc.name).on(("change"),
+				//(function(e){App.controls[k].update(parseInt($("#value_"+App.controls[k].name).val()));}).compel(this, [], {k:i})
+				(function(i){
+					return function(e){
+						App.controls[i].update(parseInt($("#value_"+App.controls[i].name).val()));
+					};
+				})(i)
+			);
+			
+			this.updateUI(i);
+		}
+	},
+	
+	// ui update
+	// az oszes ui elemet frissiti
+	updateUI:function(melyiket){
+		$("#slider_" + this.controls[melyiket].name).slider("value", this.controls[melyiket].val);
+		$("#value_" + this.controls[melyiket].name).val(this.controls[melyiket].val);
+	},
+}
+
+// ha betoltodott az oldal es a jquery
+$(function() {
+	App.main();
+});
+	</script>
+</head>
+<body>
+	<!-- HEADER -->
+	<header>
+		<h1>Kép és hangfeldolgozás
+			<em>01/b: Overlay görbék(?)</em>
+		</h1>
+		<em>Sári Péter / SAPSAAP.PTE</em>
+	</header>
+	
+	<!-- CONTENT -->
+	<section class="guest">
+		
+		<div id="renderSurface"></div>
+		
+		<div id="UIComponents">
+			<!-- Presetek -->
+			<p class="ui-state-default ui-corner-all ui-helper-clearfix" style="padding:4px;"> <span class="ui-icon ui-icon-image" style="float:left; margin:3px 5px 0 0;"></span>Presetek: 
+				<select id="select_preset">
+					<option>Not loaded yet</option>
+				</select>
+			</p>
+			
+			<!-- Elso control pont -->
+			<!-- RGB -->
+			<p class="ui-state-default ui-corner-all ui-helper-clearfix" style="padding:4px;"> <span class="ui-icon ui-icon-lightbulb" style="float:left; margin:3px 5px 0 0;"></span>Első RGB: (Output) <INPUT id="value_outR0" size="5"/><INPUT id="value_outG0" size="5"/><INPUT id="value_outB0" size="5"/></p>
+			<div id="slider_outR0"></div>
+			<div id="slider_outG0"></div>
+			<div id="slider_outB0"></div>
+
+			<!-- POS -->
+			<p class="ui-state-default ui-corner-all ui-helper-clearfix" style="padding:4px;"> <span class="ui-icon ui-icon-lightbulb" style="float:left; margin:3px 5px 0 0;"></span>Első Pozíció: (Input)<INPUT id="value_in0" size="5"/></p>
+			<div id="slider_in0"></div>
+			
+			<!-- Masodik control pont -->
+			<!-- R -->
+				<!-- Elso control pont -->
+			<!-- RGB -->
+			<p class="ui-state-default ui-corner-all ui-helper-clearfix" style="padding:4px;"> <span class="ui-icon ui-icon-lightbulb" style="float:left; margin:3px 5px 0 0;"></span>Második RGB: (Output) <INPUT id="value_outR1" size="5"/><INPUT id="value_outG1" size="5"/><INPUT id="value_outB1" size="5"/></p>
+			<div id="slider_outR1"></div>
+			<div id="slider_outG1"></div>
+			<div id="slider_outB1"></div>
+
+			<!-- POS -->
+			<p class="ui-state-default ui-corner-all ui-helper-clearfix" style="padding:4px;"> <span class="ui-icon ui-icon-lightbulb" style="float:left; margin:3px 5px 0 0;"></span>Második Pozíció: (Input)<INPUT id="value_in1" size="5"/></p>
+			<div id="slider_in1"></div>
+			
+			<!-- Textúra -->
+			<p class="ui-state-default ui-corner-all ui-helper-clearfix" style="padding:4px;"> <span class="ui-icon ui-icon-image" style="float:left; margin:3px 5px 0 0;"></span>Textúra: 
+				<select id="select_texture">
+					<option>Not loaded yet</option>
+				</select>
+			</p>
+			
+		</div>
+	</section>
+	
+	<!-- FOOTER -->
+	<footer><a href = "http://ir.untergrund.net/~caiwan/">Caiwan/IR</a> / 2014 may</footer>
+</body>
